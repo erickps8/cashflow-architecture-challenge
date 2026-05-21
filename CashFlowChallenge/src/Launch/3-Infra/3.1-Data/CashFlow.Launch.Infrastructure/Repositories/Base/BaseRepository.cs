@@ -27,6 +27,11 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
         return await DbSet.FirstOrDefaultAsync(x => x.Id == id);
     }
 
+    public async Task<List<TEntity>> GetAllAsync()
+    {
+        return await DbSet.AsNoTracking().ToListAsync();
+    }
+
     public async Task SaveChangesAsync()
     {
         await Context.SaveChangesAsync();

@@ -32,4 +32,10 @@ public class EntriesController : MainController
 
         return CustomResponse(result);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        return CustomResponse(await _service.GetAllAsync());
+    }
 }

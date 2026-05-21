@@ -38,4 +38,9 @@ public class EntryService : IEntryService
 
         return entry;
     }
+
+    public async Task<List<Entry>> GetAllAsync()
+    {
+        return await _repository.GetAllAsync();
+    }
 }
