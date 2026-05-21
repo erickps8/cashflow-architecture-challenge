@@ -1,0 +1,29 @@
+# Build
+bin/
+obj/
+
+# User files
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# Docker
+docker-data/
+
+# OS
+Thumbs.db
+.DS_Store

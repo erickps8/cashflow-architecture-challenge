@@ -1,0 +1,59 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35828.75
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Launch.Api", "src\Launch\1-Application\CashFlow.Launch.Api\CashFlow.Launch.Api.csproj", "{1E6F5793-79B0-44F7-8659-2912ADF13731}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Launch.Domain", "src\Launch\2-Domain\CashFlow.Launch.Domain\CashFlow.Launch.Domain.csproj", "{168B3F09-AFFD-4274-B022-B1DB21920C06}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "1-Application", "1-Application", "{CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "2-Domain", "2-Domain", "{021613BA-EA10-41FE-94B7-AC3EB3C8BAA0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3-Infra", "3-Infra", "{CFBCDE0C-7D3B-4941-ACD2-0B0A071C19EE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3.1-Data", "3.1-Data", "{961C7CCF-C40C-4BE2-AF77-C802DA9BD8FD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3.2-CrossCutting", "3.2-CrossCutting", "{C3ADF38E-85C1-4C54-8BC0-7898FC49AFDA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Launch.Infrastructure", "src\Launch\3-Infra\3.1-Data\CashFlow.Launch.Infrastructure\CashFlow.Launch.Infrastructure.csproj", "{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1E6F5793-79B0-44F7-8659-2912ADF13731}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E6F5793-79B0-44F7-8659-2912ADF13731}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E6F5793-79B0-44F7-8659-2912ADF13731}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E6F5793-79B0-44F7-8659-2912ADF13731}.Release|Any CPU.Build.0 = Release|Any CPU
+		{168B3F09-AFFD-4274-B022-B1DB21920C06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{168B3F09-AFFD-4274-B022-B1DB21920C06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{168B3F09-AFFD-4274-B022-B1DB21920C06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{168B3F09-AFFD-4274-B022-B1DB21920C06}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1E6F5793-79B0-44F7-8659-2912ADF13731} = {CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}
+		{168B3F09-AFFD-4274-B022-B1DB21920C06} = {021613BA-EA10-41FE-94B7-AC3EB3C8BAA0}
+		{961C7CCF-C40C-4BE2-AF77-C802DA9BD8FD} = {CFBCDE0C-7D3B-4941-ACD2-0B0A071C19EE}
+		{C3ADF38E-85C1-4C54-8BC0-7898FC49AFDA} = {CFBCDE0C-7D3B-4941-ACD2-0B0A071C19EE}
+		{6F2EDE71-1FC8-4D39-904C-89F8ACCA01FA} = {961C7CCF-C40C-4BE2-AF77-C802DA9BD8FD}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8C2AFDFE-DA55-40C4-AE80-47852D9A8BC6}
+	EndGlobalSection
+EndGlobal
