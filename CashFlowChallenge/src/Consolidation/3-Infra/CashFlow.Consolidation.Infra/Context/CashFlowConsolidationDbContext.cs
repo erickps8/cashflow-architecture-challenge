@@ -1,6 +1,5 @@
 ﻿using CashFlow.Consolidation.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace CashFlow.Consolidation.Infra.Context;
 
@@ -13,4 +12,5 @@ public class CashFlowConsolidationDbContext : DbContext
     }
 
     public DbSet<DailyConsolidation> DailyConsolidations { get; set; }
+
 }

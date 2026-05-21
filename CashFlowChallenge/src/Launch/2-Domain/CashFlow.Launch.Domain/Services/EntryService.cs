@@ -1,8 +1,10 @@
 ﻿using CashFlow.Launch.Domain.Entities;
 using CashFlow.Launch.Domain.Enums;
+using CashFlow.Launch.Domain.Events;
 using CashFlow.Launch.Domain.Interfaces;
 using CashFlow.Launch.Domain.Interfaces.Services;
 using CashFlow.Launch.Domain.Notifications;
+using System.Text.Json;
 
 namespace CashFlow.Launch.Domain.Services;
 
@@ -10,10 +12,11 @@ public class EntryService : IEntryService
 {
     private readonly IEntryRepository _repository;
     private readonly INotificator _notificator;
-
-    public EntryService(IEntryRepository repository, INotificator notificator)
+    private readonly IOutboxMessageRepository _outboxRepository;
+    public EntryService(IEntryRepository repository, IOutboxMessageRepository outboxRepository, INotificator notificator)
     {
         _repository = repository;
+        _outboxRepository = outboxRepository;
         _notificator = notificator;
     }
 
@@ -21,7 +24,7 @@ public class EntryService : IEntryService
     {
         if (amount <= 0)
         {
-            _notificator.Handle(new Notification("O valor deve ser maior que zero."));
+            _notificator.Handle(new Notification("Amount must be greater than zero."));
             return null;
         }
 
@@ -34,6 +37,24 @@ public class EntryService : IEntryService
         };
 
         await _repository.AddAsync(entry);
+
+        var entryCreatedEvent = new EntryCreatedEvent
+        {
+            EntryId = entry.Id,
+            Amount = entry.Amount,
+            Type = (int)entry.Type,
+            Description = entry.Description,
+            OccurredAt = entry.OccurredAt
+        };
+
+        var outboxMessage = new OutboxMessage
+        {
+            Type = nameof(EntryCreatedEvent),
+            Payload = JsonSerializer.Serialize(entryCreatedEvent)
+        };
+
+        await _outboxRepository.AddAsync(outboxMessage);
+
         await _repository.SaveChangesAsync();
 
         return entry;

@@ -20,6 +20,7 @@ public static class DependencyInjectionExtensions
             options.UseSqlite(connectionString);
         });
 
+        services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
         services.AddScoped<IEntryService, EntryService>();
         services.AddScoped<INotificator, Notificator>();
         services.AddScoped<IEntryRepository, EntryRepository>();
