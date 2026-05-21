@@ -1,17 +1,17 @@
-﻿using CashFlow.Launch.Domain.Entities.Base;
-using CashFlow.Launch.Domain.Interfaces.Base;
-using CashFlow.Launch.Infrastructure.Context;
+﻿using CashFlow.Consolidation.Domain.Entities.Base;
+using CashFlow.Consolidation.Domain.Interfaces.Base;
+using CashFlow.Consolidation.Infra.Context;
 using Microsoft.EntityFrameworkCore;
 
-namespace CashFlow.Launch.Infrastructure.Repositories.Base;
+namespace CashFlow.Consolidation.Infra.Repositories.Base;
 
 public class BaseRepository<TEntity> : IBaseRepository<TEntity>
     where TEntity : Entity
 {
-    protected readonly CashFlowDbContext _context;
+    protected readonly CashFlowConsolidationDbContext _context;
     protected readonly DbSet<TEntity> _dbSet;
 
-    public BaseRepository(CashFlowDbContext context)
+    public BaseRepository(CashFlowConsolidationDbContext context)
     {
         _context = context;
         _dbSet = context.Set<TEntity>();
@@ -21,7 +21,6 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
     {
         await _dbSet.AddAsync(entity);
     }
-
     public async Task<TEntity?> GetByIdAsync(Guid id)
     {
         return await _dbSet.FirstOrDefaultAsync(x => x.Id == id);
