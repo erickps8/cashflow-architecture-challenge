@@ -8,32 +8,32 @@ namespace CashFlow.Launch.Infrastructure.Repositories.Base;
 public class BaseRepository<TEntity> : IBaseRepository<TEntity>
     where TEntity : Entity
 {
-    protected readonly CashFlowDbContext Context;
-    protected readonly DbSet<TEntity> DbSet;
+    protected readonly CashFlowDbContext _context;
+    protected readonly DbSet<TEntity> _dbSet;
 
     public BaseRepository(CashFlowDbContext context)
     {
-        Context = context;
-        DbSet = context.Set<TEntity>();
+        _context = context;
+        _dbSet = context.Set<TEntity>();
     }
 
     public async Task AddAsync(TEntity entity)
     {
-        await DbSet.AddAsync(entity);
+        await _dbSet.AddAsync(entity);
     }
 
     public async Task<TEntity?> GetByIdAsync(Guid id)
     {
-        return await DbSet.FirstOrDefaultAsync(x => x.Id == id);
+        return await _dbSet.FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public async Task<List<TEntity>> GetAllAsync()
     {
-        return await DbSet.AsNoTracking().ToListAsync();
+        return await _dbSet.AsNoTracking().ToListAsync();
     }
 
     public async Task SaveChangesAsync()
     {
-        await Context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
     }
 }

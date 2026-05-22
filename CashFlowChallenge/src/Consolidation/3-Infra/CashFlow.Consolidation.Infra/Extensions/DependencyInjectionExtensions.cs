@@ -16,7 +16,7 @@ public static class DependencyInjectionExtensions
     {
         services.AddDbContext<CashFlowConsolidationDbContext>(options =>
         {
-            options.UseSqlite(connectionString);
+            options.UseNpgsql(connectionString);
         });
 
         services.AddScoped<INotificator, Notificator>();

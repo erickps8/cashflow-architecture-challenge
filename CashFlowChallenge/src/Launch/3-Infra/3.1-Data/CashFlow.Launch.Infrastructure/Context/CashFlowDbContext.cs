@@ -11,4 +11,5 @@ public class CashFlowDbContext : DbContext
     }
 
     public DbSet<Entry> Entries { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 }
