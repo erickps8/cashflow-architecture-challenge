@@ -16,7 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\2-Domain\CashFlow.Launch.Domain\CashFlow.Launch.Domain.csproj" />
-    <ProjectReference Include="..\..\3-Infra\3.1-Data\CashFlow.Launch.Infrastructure\CashFlow.Launch.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Consolidation\2-Domain\CashFlow.Consolidation.Domain\CashFlow.Consolidation.Domain.csproj" />
+    <ProjectReference Include="..\..\Consolidation\3-Infra\CashFlow.Consolidation.Infra\CashFlow.Consolidation.Infra.csproj" />
+    <ProjectReference Include="..\..\Launch\2-Domain\CashFlow.Launch.Domain\CashFlow.Launch.Domain.csproj" />
+    <ProjectReference Include="..\..\Launch\3-Infra\3.1-Data\CashFlow.Launch.Infrastructure\CashFlow.Launch.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
