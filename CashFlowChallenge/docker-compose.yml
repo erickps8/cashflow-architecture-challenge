@@ -52,6 +52,7 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    restart: always
 
 volumes:
   cashflow_postgres_data:
