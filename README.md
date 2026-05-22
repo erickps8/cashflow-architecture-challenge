@@ -1,94 +1,93 @@
 # CashFlowChallenge
 
-Solução desenvolvida em .NET 8 para controle de fluxo de caixa, composta por serviço de lançamentos financeiros e serviço de consolidação diária.
+SoluÃ§Ã£o desenvolvida em .NET 8 para controle de fluxo de caixa, composta por serviÃ§o de lanÃ§amentos financeiros e serviÃ§o de consolidaÃ§Ã£o diÃ¡ria.
 
----
+## Objetivo
 
-# Objetivo
+Permitir o registro de lanÃ§amentos financeiros de dÃ©bito e crÃ©dito, mantendo a consolidaÃ§Ã£o diÃ¡ria de saldo de forma assÃ­ncrona, resiliente e desacoplada.
 
-Permitir o registro de lançamentos financeiros de débito e crédito, mantendo a consolidação diária de saldo de forma assíncrona, resiliente e desacoplada.
+O principal requisito arquitetural atendido Ã© garantir que o serviÃ§o de lanÃ§amentos continue disponÃ­vel mesmo que o serviÃ§o de consolidaÃ§Ã£o esteja indisponÃ­vel.
 
-O principal requisito arquitetural atendido é garantir que o serviço de lançamentos continue disponível mesmo que o serviço de consolidação esteja indisponível.
+## Arquitetura
 
----
-
-# Arquitetura
-
-A solução utiliza uma arquitetura orientada a eventos, com separação entre os contextos de lançamento e consolidação.
+A soluÃ§Ã£o utiliza uma arquitetura orientada a eventos, com separaÃ§Ã£o entre os contextos de lanÃ§amento e consolidaÃ§Ã£o.
 
 Fluxo principal:
 
 ```text
-Cliente
-  -> Launch.Api
-  -> PostgreSQL Launch / Outbox
-  -> Worker
-  -> RabbitMQ
-  -> Worker
-  -> PostgreSQL Consolidation
-  -> Consolidation.Api consulta o consolidado
+  -> salva lanÃ§amento
+  -> grava mensagem na Outbox
+  -> Worker publica evento no RabbitMQ
+  -> Worker consome evento
+  -> Worker atualiza consolidado
 ```
----
-# Estrutura do Projeto
+
+## Estrutura do Projeto
 
 ```text
 CashFlowChallenge
-??? docker-compose.yml
-??? README.md
-??? docs
-?   ??? architecture.md
-?
-??? src
-    ??? Launch
-    ?   ??? 1-Application
-    ?   ?   ??? CashFlow.Launch.Api
-    ?   ??? 2-Domain
-    ?   ?   ??? CashFlow.Launch.Domain
-    ?   ??? 3-Infra
-    ?       ??? 3.1-Data
-    ?           ??? CashFlow.Launch.Infrastructure
-    ?
-    ??? Consolidation
-    ?   ??? 1-Application
-    ?   ?   ??? CashFlow.Consolidation.Api
-    ?   ??? 2-Domain
-    ?   ?   ??? CashFlow.Consolidation.Domain
-    ?   ??? 3-Infra
-    ?       ??? CashFlow.Consolidation.Infra
-    ?
-    ??? Worker
-        ??? CashFlow.Worker
+â”œâ”€â”€ docker-compose.yml
+â”œâ”€â”€ README.md
+â”œâ”€â”€ docs
+â”‚   â””â”€â”€ architecture.md
+â”‚
+â””â”€â”€ src
+    â”œâ”€â”€ Launch
+    â”‚   â”œâ”€â”€ 1-Application
+    â”‚   â”‚   â””â”€â”€ CashFlow.Launch.Api
+    â”‚   â”œâ”€â”€ 2-Domain
+    â”‚   â”‚   â””â”€â”€ CashFlow.Launch.Domain
+    â”‚   â””â”€â”€ 3-Infra
+    â”‚       â””â”€â”€ 3.1-Data
+    â”‚           â””â”€â”€ CashFlow.Launch.Infrastructure
+    â”‚
+    â”œâ”€â”€ Consolidation
+    â”‚   â”œâ”€â”€ 1-Application
+    â”‚   â”‚   â””â”€â”€ CashFlow.Consolidation.Api
+    â”‚   â”œâ”€â”€ 2-Domain
+    â”‚   â”‚   â””â”€â”€ CashFlow.Consolidation.Domain
+    â”‚   â””â”€â”€ 3-Infra
+    â”‚       â””â”€â”€ CashFlow.Consolidation.Infra
+    â”‚
+    â””â”€â”€ Worker
+        â””â”€â”€ CashFlow.Worker
+```
+
 ---
 
 # Componentes
 
 ## CashFlow.Launch.Api
 
-Responsável pelo cadastro de lançamentos financeiros.
+ResponsÃ¡vel pelo cadastro de lanÃ§amentos financeiros.
 
 ## CashFlow.Launch.Domain
 
-Contém as regras e entidades do domínio de lançamentos.
+ContÃ©m as regras e entidades do domÃ­nio de lanÃ§amentos.
 
 ## CashFlow.Launch.Infrastructure
 
-Responsável pela persistência dos lançamentos e mensagens de outbox.
+ResponsÃ¡vel pela persistÃªncia dos lanÃ§amentos e mensagens de outbox.
 
 ## CashFlow.Worker
 
-Responsável por publicar no RabbitMQ as mensagens pendentes da outbox.
+ResponsÃ¡vel por:
+
+- publicar mensagens pendentes da outbox;
+- consumir eventos do RabbitMQ;
+- processar a consolidaÃ§Ã£o diÃ¡ria.
 
 ## CashFlow.Consolidation.Api
 
-Responsável por consumir eventos e consultar o saldo diário consolidado.
+ResponsÃ¡vel pela consulta do saldo diÃ¡rio consolidado.
 
 ## CashFlow.Consolidation.Domain
 
-Contém as regras e entidades do domínio de consolidação.
+ContÃ©m as regras e entidades do domÃ­nio de consolidaÃ§Ã£o.
 
 ## CashFlow.Consolidation.Infra
 
-Responsável pela persistência dos dados consolidados.
+ResponsÃ¡vel pela persistÃªncia dos dados consolidados.
 
 ---
 
@@ -104,7 +103,7 @@ Responsável pela persistência dos dados consolidados.
 
 ---
 
-# Padrões utilizados
+# PadrÃµes utilizados
 
 - DDD
 - SOLID
@@ -112,72 +111,72 @@ Responsável pela persistência dos dados consolidados.
 - Service Layer
 - Outbox Pattern
 - Event Driven Architecture
-- Mensageria assíncrona
+- Mensageria assÃ­ncrona
 
 ---
 
-# Decisões arquiteturais
+# DecisÃµes arquiteturais
 
-## Separação entre lançamentos e consolidação
+## SeparaÃ§Ã£o entre lanÃ§amentos e consolidaÃ§Ã£o
 
-Os serviços foram separados para evitar acoplamento direto entre o registro de lançamentos e o cálculo do saldo diário.
+Os serviÃ§os foram separados para evitar acoplamento direto entre o registro de lanÃ§amentos e o cÃ¡lculo do saldo diÃ¡rio.
 
-Com isso, o serviço de lançamento não depende da disponibilidade do consolidado.
+Com isso, o serviÃ§o de lanÃ§amento nÃ£o depende da disponibilidade do consolidado.
 
 ## Uso de mensageria
 
-O RabbitMQ foi utilizado para comunicação assíncrona entre os contextos.
+O RabbitMQ foi utilizado para comunicaÃ§Ã£o assÃ­ncrona entre os contextos.
 
 Essa abordagem permite:
 
-- desacoplamento entre serviços;
-- absorção de picos de carga;
+- desacoplamento entre serviÃ§os;
+- absorÃ§Ã£o de picos de carga;
 - processamento posterior em caso de falha;
-- maior resiliência operacional.
+- maior resiliÃªncia operacional.
 
 ## Uso do Outbox Pattern
 
-O padrão Outbox foi adotado para reduzir o risco de perda de mensagens.
+O padrÃ£o Outbox foi adotado para reduzir o risco de perda de mensagens.
 
-Ao registrar um lançamento, a aplicação também grava uma mensagem pendente na tabela de outbox. Um Worker fica responsável por publicar essas mensagens no RabbitMQ.
+Ao registrar um lanÃ§amento, a aplicaÃ§Ã£o tambÃ©m grava uma mensagem pendente na tabela de outbox. Um Worker fica responsÃ¡vel por publicar essas mensagens no RabbitMQ.
 
-Essa decisão evita o problema de salvar o lançamento no banco, mas falhar antes de publicar o evento.
+Essa decisÃ£o evita o problema de salvar o lanÃ§amento no banco, mas falhar antes de publicar o evento.
 
 ---
 
-# Requisitos não funcionais atendidos
+# Requisitos nÃ£o funcionais atendidos
 
 ## Disponibilidade
 
-O serviço de lançamentos continua disponível mesmo que o serviço de consolidação esteja fora do ar.
+O serviÃ§o de lanÃ§amentos continua disponÃ­vel mesmo que o serviÃ§o de consolidaÃ§Ã£o esteja fora do ar.
 
-## Resiliência
+## ResiliÃªncia
 
-As mensagens ficam armazenadas na outbox até serem publicadas com sucesso.
+As mensagens ficam armazenadas na outbox atÃ© serem publicadas com sucesso.
 
 ## Escalabilidade
 
-A arquitetura permite evolução para múltiplas instâncias dos serviços e consumers.
+A arquitetura permite evoluÃ§Ã£o para mÃºltiplas instÃ¢ncias dos serviÃ§os e consumers.
 
 ## Integridade
 
-O lançamento financeiro é persistido antes da publicação do evento, reduzindo risco de inconsistência.
+O lanÃ§amento financeiro Ã© persistido antes da publicaÃ§Ã£o do evento, reduzindo risco de inconsistÃªncia.
 
 ## Desacoplamento
 
-Os serviços não se comunicam diretamente por HTTP para processar a consolidação.
+Os serviÃ§os nÃ£o se comunicam diretamente por HTTP para processar a consolidaÃ§Ã£o.
 
 ---
 
 # Como executar
 
-## Pré-requisitos
+## PrÃ©-requisitos
 
 - Docker
 - Docker Compose
 - .NET 8 SDK
 
-## Subir a aplicação
+## Subir a aplicaÃ§Ã£o
 
 Na raiz do projeto, execute:
 
@@ -211,7 +210,7 @@ http://localhost:5002/swagger
 http://localhost:15672
 ```
 
-Usuário:
+UsuÃ¡rio:
 
 ```text
 guest
@@ -227,7 +226,7 @@ guest
 
 # Banco de dados
 
-A solução utiliza PostgreSQL com bancos separados por contexto:
+A soluÃ§Ã£o utiliza PostgreSQL com bancos separados por contexto:
 
 - cashflow_launch
 - cashflow_consolidation
@@ -258,40 +257,40 @@ EntryCreatedEvent
 
 # Testes realizados
 
-Foram validados os seguintes cenários:
+Foram validados os seguintes cenÃ¡rios:
 
-- criação de lançamento de crédito;
-- criação de lançamento de débito;
-- consolidação acumulada por data;
-- processamento assíncrono via RabbitMQ;
-- publicação de mensagens via Worker;
-- manutenção do serviço de lançamento mesmo com consolidação desacoplada.
+- criaÃ§Ã£o de lanÃ§amento de crÃ©dito;
+- criaÃ§Ã£o de lanÃ§amento de dÃ©bito;
+- consolidaÃ§Ã£o acumulada por data;
+- processamento assÃ­ncrono via RabbitMQ;
+- publicaÃ§Ã£o de mensagens via Worker;
+- manutenÃ§Ã£o do serviÃ§o de lanÃ§amento mesmo com consolidaÃ§Ã£o desacoplada.
 
 ---
 
 # Trade-offs
 
-A solução prioriza clareza arquitetural, resiliência e simplicidade.
+A soluÃ§Ã£o prioriza clareza arquitetural, resiliÃªncia e simplicidade.
 
-Algumas decisões como Kubernetes, autenticação JWT, observabilidade avançada e cache distribuído foram consideradas como evoluções futuras, mas não foram implementadas para evitar fugir do escopo do desafio.
+Algumas decisÃµes como Kubernetes, autenticaÃ§Ã£o JWT, observabilidade avanÃ§ada e cache distribuÃ­do foram consideradas como evoluÃ§Ãµes futuras, mas nÃ£o foram implementadas para evitar overengineering no escopo do desafio.
 
 ---
 
-# Evoluções futuras
+# EvoluÃ§Ãµes futuras
 
 - Implementar Dead Letter Queue;
-- Implementar idempotência no consumer;
-- Melhorar estratégia de reprocessamento;
-- Adicionar autenticação e autorização;
+- Implementar idempotÃªncia no consumer;
+- Melhorar estratÃ©gia de reprocessamento;
+- Adicionar autenticaÃ§Ã£o e autorizaÃ§Ã£o;
 - Adicionar OpenTelemetry;
-- Adicionar métricas operacionais;
+- Adicionar mÃ©tricas operacionais;
 - Adicionar health checks;
 - Adicionar retry exponencial;
-- Adicionar cache distribuído para consultas de consolidação;
+- Adicionar cache distribuÃ­do para consultas de consolidaÃ§Ã£o;
 - Adicionar testes automatizados mais abrangentes.
 
 ---
 
-# Considerações finais
+# ConsideraÃ§Ãµes finais
 
-A solução demonstra uma arquitetura distribuída, resiliente e orientada a eventos, com foco em disponibilidade do serviço de lançamentos e processamento assíncrono da consolidação diária.
+A soluÃ§Ã£o demonstra uma arquitetura distribuÃ­da, resiliente e orientada a eventos, com foco em disponibilidade do serviÃ§o de lanÃ§amentos e processamento assÃ­ncrono da consolidaÃ§Ã£o diÃ¡ria.
