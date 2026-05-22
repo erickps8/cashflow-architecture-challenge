@@ -19,65 +19,96 @@ public class DailyConsolidationService : IDailyConsolidationService
 
     public async Task<IEnumerable<DailyConsolidation>> GetAllAsync()
     {
-        return await _repository.GetAllAsync();
+        try
+        {
+            return await _repository.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Notify($"Erro ao consultar consolidações: {ex.Message}");
+            return Enumerable.Empty<DailyConsolidation>();
+        }
     }
+
     public async Task<DailyConsolidation> ReprocessAsync()
     {
-        var consolidation = await _repository.GetByDateAsync(DateTime.Today);
-
-        if (consolidation is null)
+        try
         {
-            consolidation = new DailyConsolidation
+            var consolidation = await _repository.GetByDateAsync(DateTime.Today);
+
+            if (consolidation is null)
             {
-                Date = DateTime.Today
-            };
+                consolidation = new DailyConsolidation
+                {
+                    Date = DateTime.Today
+                };
 
-            await _repository.AddAsync(consolidation);
+                await _repository.AddAsync(consolidation);
+            }
+
+            consolidation.TotalCredits = 1000;
+            consolidation.TotalDebits = 250;
+            consolidation.Balance = 750;
+
+            await _repository.SaveChangesAsync();
+
+            return consolidation;
         }
+        catch (Exception ex)
+        {
+            Notify($"Erro ao reprocessar consolidação: {ex.Message}");
 
-        consolidation.TotalCredits = 1000;
-        consolidation.TotalDebits = 250;
-        consolidation.Balance = 750;
-
-        await _repository.SaveChangesAsync();
-
-        return consolidation;
+            throw;
+        }
     }
 
     public async Task ProcessEntryAsync(
-    decimal amount,
-    int type,
-    DateTime occurredAt)
+        decimal amount,
+        int type,
+        DateTime occurredAt)
     {
-        var date = occurredAt.Date;
-
-        var consolidation = await _repository.GetByDateAsync(date);
-
-        if (consolidation is null)
+        try
         {
-            consolidation = new DailyConsolidation
+            var date = occurredAt.Date;
+
+            var consolidation = await _repository.GetByDateAsync(date);
+
+            if (consolidation is null)
             {
-                Date = date,
-                TotalCredits = 0,
-                TotalDebits = 0,
-                Balance = 0
-            };
+                consolidation = new DailyConsolidation
+                {
+                    Date = date,
+                    TotalCredits = 0,
+                    TotalDebits = 0,
+                    Balance = 0
+                };
 
-            await _repository.AddAsync(consolidation);
+                await _repository.AddAsync(consolidation);
+            }
+
+            if (type == 1)
+            {
+                consolidation.TotalCredits += amount;
+            }
+            else
+            {
+                consolidation.TotalDebits += amount;
+            }
+
+            consolidation.Balance =
+                consolidation.TotalCredits - consolidation.TotalDebits;
+
+            await _repository.SaveChangesAsync();
         }
-
-        if (type == 1)
+        catch (Exception ex)
         {
-            consolidation.TotalCredits += amount;
-        }
-        else
-        {
-            consolidation.TotalDebits += amount;
-        }
+            Notify($"Erro ao processar lançamento: {ex.Message}");
 
-        consolidation.Balance =
-            consolidation.TotalCredits - consolidation.TotalDebits;
-
-        await _repository.SaveChangesAsync();
+            throw;
+        }
+    }
+    private void Notify(string message)
+    {
+        _notificator.Handle(new Notification(message));
     }
 }

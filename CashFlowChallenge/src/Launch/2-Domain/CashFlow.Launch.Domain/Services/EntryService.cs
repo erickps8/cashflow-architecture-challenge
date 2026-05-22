@@ -66,6 +66,19 @@ public class EntryService : IEntryService
 
     public async Task<List<Entry>> GetAllAsync()
     {
-        return await _repository.GetAllAsync();
+        try
+        {
+            return await _repository.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Notify($"Erro ao consultar lançamentos: {ex.Message}");
+
+            return [];
+        }
+    }
+    private void Notify(string message)
+    {
+        _notificator.Handle(new Notification(message));
     }
 }
