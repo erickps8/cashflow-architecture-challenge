@@ -19,14 +19,45 @@ A solução utiliza uma arquitetura orientada a eventos, com separação entre os co
 Fluxo principal:
 
 ```text
-Launch.Api
-  -> salva lançamento
-  -> grava mensagem na Outbox
-  -> Worker publica evento no RabbitMQ
-  -> Consolidation recebe evento
-  -> atualiza saldo diário
+Cliente
+  -> Launch.Api
+  -> PostgreSQL Launch / Outbox
+  -> Worker
+  -> RabbitMQ
+  -> Worker
+  -> PostgreSQL Consolidation
+  -> Consolidation.Api consulta o consolidado
 ```
+---
+# Estrutura do Projeto
 
+```text
+CashFlowChallenge
+??? docker-compose.yml
+??? README.md
+??? docs
+?   ??? architecture.md
+?
+??? src
+    ??? Launch
+    ?   ??? 1-Application
+    ?   ?   ??? CashFlow.Launch.Api
+    ?   ??? 2-Domain
+    ?   ?   ??? CashFlow.Launch.Domain
+    ?   ??? 3-Infra
+    ?       ??? 3.1-Data
+    ?           ??? CashFlow.Launch.Infrastructure
+    ?
+    ??? Consolidation
+    ?   ??? 1-Application
+    ?   ?   ??? CashFlow.Consolidation.Api
+    ?   ??? 2-Domain
+    ?   ?   ??? CashFlow.Consolidation.Domain
+    ?   ??? 3-Infra
+    ?       ??? CashFlow.Consolidation.Infra
+    ?
+    ??? Worker
+        ??? CashFlow.Worker
 ---
 
 # Componentes
