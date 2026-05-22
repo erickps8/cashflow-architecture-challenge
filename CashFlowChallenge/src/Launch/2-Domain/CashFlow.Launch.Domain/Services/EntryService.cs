@@ -28,6 +28,10 @@ public class EntryService : IEntryService
             return null;
         }
 
+        occurredAt = DateTime.SpecifyKind(
+        occurredAt,
+        DateTimeKind.Utc);
+
         var entry = new Entry
         {
             Amount = amount,

@@ -5,4 +5,5 @@ namespace CashFlow.Launch.Domain.Interfaces;
 
 public interface IOutboxMessageRepository : IBaseRepository<OutboxMessage>
 {
+    Task<IEnumerable<OutboxMessage>> GetPendingAsync();
 }

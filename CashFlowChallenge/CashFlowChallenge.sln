@@ -30,6 +30,20 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Consolidation.Doma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Consolidation.Infra", "src\Consolidation\3-Infra\CashFlow.Consolidation.Infra\CashFlow.Consolidation.Infra.csproj", "{9796266C-AB74-4D70-B59E-C825A8AC1375}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Itens de Solução", "Itens de Solução", "{380A7511-A354-6D7A-0CC0-8FA1F1BA7B6C}"
+	ProjectSection(SolutionItems) = preProject
+		docker-compose.yml = docker-compose.yml
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Worker", "src\Launch\1-Application\CashFlow.Worker\CashFlow.Worker.csproj", "{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docker", "Docker", "{8C5C11D1-973F-4697-A957-8C8D3C2C653B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Postgress", "Postgress", "{39EFCD39-DBCB-4F8E-AA37-345D6B9736C4}"
+	ProjectSection(SolutionItems) = preProject
+		Init.sql = Init.sql
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,6 +74,10 @@ Global
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -73,6 +91,8 @@ Global
 		{9F8742BC-22DA-415D-B6AA-47D25A4A01BE} = {CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}
 		{6398D24F-2C58-4141-AF77-C0B1F5DBC471} = {021613BA-EA10-41FE-94B7-AC3EB3C8BAA0}
 		{9796266C-AB74-4D70-B59E-C825A8AC1375} = {961C7CCF-C40C-4BE2-AF77-C802DA9BD8FD}
+		{58BEBA81-9BE8-40F0-8ACD-6175C2A22A9F} = {CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}
+		{39EFCD39-DBCB-4F8E-AA37-345D6B9736C4} = {8C5C11D1-973F-4697-A957-8C8D3C2C653B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8C2AFDFE-DA55-40C4-AE80-47852D9A8BC6}

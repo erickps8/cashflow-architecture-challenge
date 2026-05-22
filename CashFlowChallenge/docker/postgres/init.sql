@@ -1,0 +1,2 @@
+CREATE DATABASE cashflow_launch;
+CREATE DATABASE cashflow_consolidation;

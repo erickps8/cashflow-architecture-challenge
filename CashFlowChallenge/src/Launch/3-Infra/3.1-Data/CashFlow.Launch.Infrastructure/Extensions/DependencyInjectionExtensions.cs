@@ -17,7 +17,7 @@ public static class DependencyInjectionExtensions
     {
         services.AddDbContext<CashFlowDbContext>(options =>
         {
-            options.UseSqlite(connectionString);
+            options.UseNpgsql(connectionString);
         });
 
         services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
