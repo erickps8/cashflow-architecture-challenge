@@ -242,7 +242,7 @@ Foram validados os seguintes cenários:
 
 A solução prioriza clareza arquitetural, resiliência e simplicidade.
 
-Algumas decisões como Kubernetes, autenticação JWT, observabilidade avançada e cache distribuído foram consideradas como evoluções futuras, mas não foram implementadas para evitar overengineering no escopo do desafio.
+Algumas decisões como Kubernetes, autenticação JWT, observabilidade avançada e cache distribuído foram consideradas como evoluções futuras, mas não foram implementadas para evitar fugir do escopo do desafio.
 
 ---
 
