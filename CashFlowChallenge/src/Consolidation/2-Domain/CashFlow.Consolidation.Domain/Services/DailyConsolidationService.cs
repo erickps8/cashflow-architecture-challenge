@@ -43,4 +43,41 @@ public class DailyConsolidationService : IDailyConsolidationService
 
         return consolidation;
     }
+
+    public async Task ProcessEntryAsync(
+    decimal amount,
+    int type,
+    DateTime occurredAt)
+    {
+        var date = occurredAt.Date;
+
+        var consolidation = await _repository.GetByDateAsync(date);
+
+        if (consolidation is null)
+        {
+            consolidation = new DailyConsolidation
+            {
+                Date = date,
+                TotalCredits = 0,
+                TotalDebits = 0,
+                Balance = 0
+            };
+
+            await _repository.AddAsync(consolidation);
+        }
+
+        if (type == 1)
+        {
+            consolidation.TotalCredits += amount;
+        }
+        else
+        {
+            consolidation.TotalDebits += amount;
+        }
+
+        consolidation.Balance =
+            consolidation.TotalCredits - consolidation.TotalDebits;
+
+        await _repository.SaveChangesAsync();
+    }
 }
