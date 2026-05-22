@@ -12,5 +12,5 @@ public class DailyConsolidation : Entity
 
     public decimal Balance { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

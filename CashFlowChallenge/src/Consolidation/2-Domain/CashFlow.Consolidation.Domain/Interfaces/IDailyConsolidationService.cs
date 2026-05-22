@@ -6,4 +6,8 @@ public interface IDailyConsolidationService
 {
     Task<IEnumerable<DailyConsolidation>> GetAllAsync();
     Task<DailyConsolidation> ReprocessAsync();
+    Task ProcessEntryAsync(
+        decimal amount,
+        int type,
+        DateTime occurredAt);
 }

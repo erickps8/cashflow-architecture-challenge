@@ -30,6 +30,25 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Consolidation.Doma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Consolidation.Infra", "src\Consolidation\3-Infra\CashFlow.Consolidation.Infra\CashFlow.Consolidation.Infra.csproj", "{9796266C-AB74-4D70-B59E-C825A8AC1375}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Itens de Solução", "Itens de Solução", "{380A7511-A354-6D7A-0CC0-8FA1F1BA7B6C}"
+	ProjectSection(SolutionItems) = preProject
+		docker-compose.yml = docker-compose.yml
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docker", "Docker", "{8C5C11D1-973F-4697-A957-8C8D3C2C653B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Postgress", "Postgress", "{39EFCD39-DBCB-4F8E-AA37-345D6B9736C4}"
+	ProjectSection(SolutionItems) = preProject
+		Init.sql = Init.sql
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Worker", "src\Worker\CashFlow.Worker\CashFlow.Worker.csproj", "{EA9C6DAB-74C1-E35D-8F58-747A93AAC406}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "4-Tests", "4-Tests", "{1BFFFF13-82A5-43C8-B96D-9B210CE067AA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashFlow.Tests", "tests\CashFlow.Tests\CashFlow.Tests.csproj", "{7405D9D9-DFD7-4793-9848-C1D85C6675A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,6 +79,14 @@ Global
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9796266C-AB74-4D70-B59E-C825A8AC1375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA9C6DAB-74C1-E35D-8F58-747A93AAC406}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA9C6DAB-74C1-E35D-8F58-747A93AAC406}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA9C6DAB-74C1-E35D-8F58-747A93AAC406}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA9C6DAB-74C1-E35D-8F58-747A93AAC406}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7405D9D9-DFD7-4793-9848-C1D85C6675A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7405D9D9-DFD7-4793-9848-C1D85C6675A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7405D9D9-DFD7-4793-9848-C1D85C6675A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7405D9D9-DFD7-4793-9848-C1D85C6675A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -73,6 +100,9 @@ Global
 		{9F8742BC-22DA-415D-B6AA-47D25A4A01BE} = {CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}
 		{6398D24F-2C58-4141-AF77-C0B1F5DBC471} = {021613BA-EA10-41FE-94B7-AC3EB3C8BAA0}
 		{9796266C-AB74-4D70-B59E-C825A8AC1375} = {961C7CCF-C40C-4BE2-AF77-C802DA9BD8FD}
+		{39EFCD39-DBCB-4F8E-AA37-345D6B9736C4} = {8C5C11D1-973F-4697-A957-8C8D3C2C653B}
+		{EA9C6DAB-74C1-E35D-8F58-747A93AAC406} = {CB1C6E9A-E319-4C9F-A6EB-2E7ABC0C77D8}
+		{7405D9D9-DFD7-4793-9848-C1D85C6675A5} = {1BFFFF13-82A5-43C8-B96D-9B210CE067AA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8C2AFDFE-DA55-40C4-AE80-47852D9A8BC6}
