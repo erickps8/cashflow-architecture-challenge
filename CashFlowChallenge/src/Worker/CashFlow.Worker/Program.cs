@@ -20,6 +20,7 @@ builder.Services.Configure<RabbitMqSettings>(
 builder.Services.AddHostedService<EntryCreatedConsumer>();
 
 builder.Services.AddScoped<RabbitMqPublisher>();
+builder.Services.AddScoped<IRabbitMqPublisher, RabbitMqPublisher>();
 
 var host = builder.Build();
 host.Run();

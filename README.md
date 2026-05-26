@@ -1,26 +1,44 @@
 # CashFlowChallenge
 
-Solução desenvolvida em .NET 8 para controle de fluxo de caixa, composta por serviço de lançamentos financeiros e serviço de consolidação diária.
+Solução desenvolvida em .NET 8 para controle de fluxo de caixa, composta por microsserviços de lançamentos financeiros, consolidação diária, autenticação e processamento assíncrono de mensagens.
 
 ## Objetivo
 
 Permitir o registro de lançamentos financeiros de débito e crédito, mantendo a consolidação diária de saldo de forma assíncrona, resiliente e desacoplada.
 
-O principal requisito arquitetural atendido é garantir que o serviço de lançamentos continue disponível mesmo que o serviço de consolidação esteja indisponível.
+---
 
 ## Arquitetura
 
-A solução utiliza uma arquitetura orientada a eventos, com separação entre os contextos de lançamento e consolidação.
+A solução utiliza arquitetura orientada a eventos, separando os contextos de lançamento, consolidação, autenticação e processamento assíncrono.
 
 Fluxo principal:
 
 ```text
-  -> salva lançamento
+Launch API
+  -> salva lançamento financeiro
   -> grava mensagem na Outbox
-  -> Worker publica evento no RabbitMQ
-  -> Worker consome evento
-  -> Worker atualiza consolidado
+
+Worker
+  -> lê mensagens pendentes da Outbox
+  -> publica evento no RabbitMQ
+  -> marca mensagem como processada
+  -> controla retry em caso de falha
+  -> consome evento EntryCreatedEvent
+  -> chama regra de consolidação diária
+
+Consolidation Domain/Infra
+  -> aplica regra de consolidação
+  -> persiste DailyConsolidation
+
+Consolidation API
+  -> consulta consolidados
+  -> reprocessa consolidados
 ```
+
+Essa abordagem evita comunicação síncrona direta entre o lançamento e a consolidação, reduzindo acoplamento e aumentando a resiliência da solução.
+
+---
 
 ## Estrutura do Projeto
 
@@ -31,79 +49,96 @@ CashFlowChallenge
 ├── docs
 │   └── architecture.md
 │
-└── src
-    ├── Launch
-    │   ├── 1-Application
-    │   │   └── CashFlow.Launch.Api
-    │   ├── 2-Domain
-    │   │   └── CashFlow.Launch.Domain
-    │   └── 3-Infra
-    │       └── 3.1-Data
-    │           └── CashFlow.Launch.Infrastructure
-    │
-    ├── Consolidation
-    │   ├── 1-Application
-    │   │   └── CashFlow.Consolidation.Api
-    │   ├── 2-Domain
-    │   │   └── CashFlow.Consolidation.Domain
-    │   └── 3-Infra
-    │       └── CashFlow.Consolidation.Infra
-    │
-    └── Worker
-        └── CashFlow.Worker
+├── src
+│   ├── Launch
+│   │   ├── 1-Application
+│   │   │   └── CashFlow.Launch.Api
+│   │   ├── 2-Domain
+│   │   │   └── CashFlow.Launch.Domain
+│   │   └── 3-Infra
+│   │       └── 3.1-Data
+│   │           └── CashFlow.Launch.Infrastructure
+│   │
+│   ├── Consolidation
+│   │   ├── 1-Application
+│   │   │   └── CashFlow.Consolidation.Api
+│   │   ├── 2-Domain
+│   │   │   └── CashFlow.Consolidation.Domain
+│   │   └── 3-Infra
+│   │       └── CashFlow.Consolidation.Infra
+│   │
+│   ├── Worker
+│   │   └── CashFlow.Worker
+│   │
+│   └── Auth
+│       └── CashFlow.Auth.Api
+│
+└── tests
+    └── CashFlow.Tests
 ```
+
 
 ---
 
-# Componentes
+## Componentes
 
-## CashFlow.Launch.Api
+### CashFlow.Launch.Api
 
-Responsável pelo cadastro de lançamentos financeiros.
+Responsável por expor os endpoints de lançamentos financeiros.
 
-## CashFlow.Launch.Domain
+### CashFlow.Launch.Domain
 
-Contém as regras e entidades do domínio de lançamentos.
+Contém as entidades, regras de domínio, serviços, interfaces e eventos relacionados aos lançamentos.
 
-## CashFlow.Launch.Infrastructure
+### CashFlow.Launch.Infrastructure
 
-Responsável pela persistência dos lançamentos e mensagens de outbox.
+Responsável pela persistência dos lançamentos e das mensagens de Outbox.
 
-## CashFlow.Worker
+### CashFlow.Worker
 
 Responsável por:
 
-- publicar mensagens pendentes da outbox;
-- consumir eventos do RabbitMQ;
-- processar a consolidação diária.
+- consultar mensagens pendentes na Outbox;
+- publicar eventos no RabbitMQ;
+- marcar mensagens como processadas;
+- controlar tentativas de retry em caso de falha.
 
-## CashFlow.Consolidation.Api
+### CashFlow.Consolidation.Api
 
-Responsável pela consulta do saldo diário consolidado.
+Responsável por expor os endpoints de consulta e reprocessamento da consolidação diária.
 
-## CashFlow.Consolidation.Domain
+### CashFlow.Consolidation.Domain
 
-Contém as regras e entidades do domínio de consolidação.
+Contém as entidades e regras de domínio da consolidação diária.
 
-## CashFlow.Consolidation.Infra
+### CashFlow.Consolidation.Infra
 
 Responsável pela persistência dos dados consolidados.
 
+### CashFlow.Auth.Api
+
+Responsável por autenticação, geração de token JWT e controle de roles por endpoint.
+
 ---
 
-# Tecnologias
+## Tecnologias
 
 - .NET 8
 - ASP.NET Core
+- ASP.NET Identity
+- JWT Bearer Authentication
 - PostgreSQL
 - RabbitMQ
 - Entity Framework Core
 - Docker Compose
 - Worker Service
+- xUnit
+- Moq
+- FluentAssertions
 
 ---
 
-# Padrões utilizados
+## Padrões utilizados
 
 - DDD
 - SOLID
@@ -112,18 +147,20 @@ Responsável pela persistência dos dados consolidados.
 - Outbox Pattern
 - Event Driven Architecture
 - Mensageria assíncrona
+- JWT Authentication
+- Autorização granular por roles
 
 ---
 
-# Decisões arquiteturais
+## Decisões arquiteturais
 
-## Separação entre lançamentos e consolidação
+### Separação entre lançamentos e consolidação
 
 Os serviços foram separados para evitar acoplamento direto entre o registro de lançamentos e o cálculo do saldo diário.
 
-Com isso, o serviço de lançamento não depende da disponibilidade do consolidado.
+Com isso, o serviço de lançamentos não depende da disponibilidade do serviço de consolidação.
 
-## Uso de mensageria
+### Uso de mensageria
 
 O RabbitMQ foi utilizado para comunicação assíncrona entre os contextos.
 
@@ -134,49 +171,76 @@ Essa abordagem permite:
 - processamento posterior em caso de falha;
 - maior resiliência operacional.
 
-## Uso do Outbox Pattern
+### Uso do Outbox Pattern
 
 O padrão Outbox foi adotado para reduzir o risco de perda de mensagens.
 
-Ao registrar um lançamento, a aplicação também grava uma mensagem pendente na tabela de outbox. Um Worker fica responsável por publicar essas mensagens no RabbitMQ.
+Ao registrar um lançamento, a aplicação também grava uma mensagem pendente na tabela de Outbox. Um Worker fica responsável por publicar essas mensagens no RabbitMQ.
 
-Essa decisão evita o problema de salvar o lançamento no banco, mas falhar antes de publicar o evento.
+Essa decisão evita o problema de salvar o lançamento no banco, mas falhar antes da publicação do evento.
+
+### Autenticação e autorização
+
+A autenticação foi isolada em um serviço próprio, utilizando ASP.NET Identity e JWT.
+
+As APIs de negócio validam o token JWT e utilizam roles granulares por endpoint, como:
+
+- `Entry.Create`
+- `Entry.GetAll`
+- `DailyConsolidation.GetAll`
+- `DailyConsolidation.Reprocess`
+
+Essa abordagem evita autorização genérica demais e permite controle mais preciso sobre as permissões.
+
+### Reprocessamento
+
+O reprocessamento manual da Outbox não foi adotado, pois o Worker já executa retry automático das mensagens pendentes.
+
+O endpoint de reprocessamento existente atua apenas sobre a consolidação diária, recalculando o saldo com base em:
+
+```text
+Balance = TotalCredits - TotalDebits
+```
 
 ---
 
-# Requisitos não funcionais atendidos
+## Requisitos não funcionais atendidos
 
-## Disponibilidade
+### Disponibilidade
 
-O serviço de lançamentos continua disponível mesmo que o serviço de consolidação esteja fora do ar.
+O serviço de lançamentos continua disponível mesmo que a consolidação esteja indisponível.
 
-## Resiliência
+### Resiliência
 
-As mensagens ficam armazenadas na outbox até serem publicadas com sucesso.
+As mensagens ficam armazenadas na Outbox até serem publicadas com sucesso.
 
-## Escalabilidade
+### Escalabilidade
 
 A arquitetura permite evolução para múltiplas instâncias dos serviços e consumers.
 
-## Integridade
+### Integridade
 
-O lançamento financeiro é persistido antes da publicação do evento, reduzindo risco de inconsistência.
+O lançamento financeiro é persistido antes da publicação do evento, reduzindo o risco de inconsistência.
 
-## Desacoplamento
+### Segurança
+
+A solução possui autenticação JWT e autorização granular por roles.
+
+### Desacoplamento
 
 Os serviços não se comunicam diretamente por HTTP para processar a consolidação.
 
 ---
 
-# Como executar
+## Como executar
 
-## Pré-requisitos
+### Pré-requisitos
 
 - Docker
 - Docker Compose
 - .NET 8 SDK
 
-## Subir a aplicação
+### Subir a aplicação
 
 Na raiz do projeto, execute:
 
@@ -186,25 +250,98 @@ docker compose up --build
 
 ---
 
-# Endpoints
+## Endpoints
 
-## Launch API
-
-Swagger:
+### Launch API
 
 ```text
 http://localhost:5001/swagger
 ```
 
-## Consolidation API
-
-Swagger:
+### Consolidation API
 
 ```text
 http://localhost:5002/swagger
 ```
 
-## RabbitMQ Management
+### Auth API
+
+```text
+http://localhost:5003/swagger
+```
+
+# Autenticação e autorização
+
+A autenticação da solução utiliza JWT Bearer com ASP.NET Identity.
+
+As permissões são controladas por roles específicas por endpoint.
+
+## Perfis disponíveis
+
+- Entry.Create
+- Entry.GetAll
+- DailyConsolidation.GetAll
+- DailyConsolidation.Reprocess
+
+## Criar usuário
+
+Acessar:
+
+```text
+http://localhost:5003/swagger
+```
+
+Executar:
+
+```text
+POST /api/Auth/register
+```
+
+Exemplo:
+
+```json
+{
+  "username": "admin",
+  "email": "admin@cashflow.com",
+  "password": "123456",
+  "roles": [
+    "entries-create",
+    "entries",
+    "daily-consolidations",
+    "daily-consolidations-reprocess",
+    "outbox-messages"
+  ]
+}
+```
+
+## Realizar login
+
+Executar:
+
+```text
+POST /api/Auth/login
+```
+
+Exemplo:
+
+```json
+{
+  "username": "admin",
+  "password": "123456"
+}
+```
+
+O endpoint retornará um token JWT.
+
+## Utilizar token no Swagger
+
+1. copiar o token retornado no login;
+2. acessar o Swagger da API desejada;
+3. clicar em `Authorize`;
+4. colar apenas o token JWT.
+
+
+### RabbitMQ Management
 
 ```text
 http://localhost:15672
@@ -224,16 +361,17 @@ guest
 
 ---
 
-# Banco de dados
+## Banco de dados
 
 A solução utiliza PostgreSQL com bancos separados por contexto:
 
-- cashflow_launch
-- cashflow_consolidation
+- `cashflow_launch`
+- `cashflow_consolidation`
+- `cashflow_auth`
 
 ---
 
-# RabbitMQ
+## RabbitMQ
 
 Exchange:
 
@@ -255,42 +393,45 @@ EntryCreatedEvent
 
 ---
 
-# Testes realizados
+## Testes automatizados
 
-Foram validados os seguintes cenários:
+O projeto possui testes automatizados cobrindo os principais fluxos arquiteturais e de negócio.
 
-- criação de lançamento de crédito;
-- criação de lançamento de débito;
-- consolidação acumulada por data;
-- processamento assíncrono via RabbitMQ;
-- publicação de mensagens via Worker;
-- manutenção do serviço de lançamento mesmo com consolidação desacoplada.
+Cenários cobertos:
+
+- criação de lançamentos financeiros válidos;
+- validação de lançamentos inválidos;
+- geração de mensagens na Outbox;
+- consulta de lançamentos;
+- consolidação diária de créditos;
+- consolidação diária de débitos;
+- criação de consolidação quando ainda não existe;
+- reprocessamento do saldo diário;
+- tratamento de erro com notificações;
+- publicação de mensagens pelo Worker;
+- controle de retry quando ocorre falha na publicação;
+- autenticação com usuário inválido;
+- registro de usuário com roles;
+- login válido com geração de token JWT.
+
+Para executar os testes:
+
+```bash
+dotnet test
+```
+
+Atualmente existem 16 testes automatizados cobrindo os fluxos principais da solução.
 
 ---
 
-# Trade-offs
+## Trade-offs
 
 A solução prioriza clareza arquitetural, resiliência e simplicidade.
 
-Algumas decisões como Kubernetes, autenticação JWT, observabilidade avançada e cache distribuído foram consideradas como evoluções futuras, mas não foram implementadas para evitar overengineering no escopo do desafio.
+Algumas decisões, como Kubernetes, cache distribuído e observabilidade avançada, foram consideradas como evoluções futuras, mas não foram implementadas para evitar fugir do escopo do desafio.
 
 ---
 
-# Evoluções futuras
+## Considerações finais
 
-- Implementar Dead Letter Queue;
-- Implementar idempotência no consumer;
-- Melhorar estratégia de reprocessamento;
-- Adicionar autenticação e autorização;
-- Adicionar OpenTelemetry;
-- Adicionar métricas operacionais;
-- Adicionar health checks;
-- Adicionar retry exponencial;
-- Adicionar cache distribuído para consultas de consolidação;
-- Adicionar testes automatizados mais abrangentes.
-
----
-
-# Considerações finais
-
-A solução demonstra uma arquitetura distribuída, resiliente e orientada a eventos, com foco em disponibilidade do serviço de lançamentos e processamento assíncrono da consolidação diária.
+A solução demonstra uma arquitetura distribuída, resiliente e orientada a eventos, com foco em disponibilidade do serviço de lançamentos, processamento assíncrono da consolidação diária, segurança via JWT e controle granular de autorização.

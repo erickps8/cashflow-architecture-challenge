@@ -5,6 +5,11 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   postgres:
     image: postgres:16
@@ -18,6 +23,25 @@ services:
     volumes:
       - cashflow_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cashflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: src/Auth/CashFlow.Auth.Api/Dockerfile
+    container_name: cashflow-auth-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
 
   launch-api:
     build:
@@ -29,8 +53,10 @@ services:
     ports:
       - "5001:8080"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   consolidation-api:
     build:
@@ -42,7 +68,9 @@ services:
     ports:
       - "5002:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    restart: always
 
   worker:
     build:
@@ -50,8 +78,10 @@ services:
       dockerfile: src/Worker/CashFlow.Worker/Dockerfile
     container_name: cashflow-worker
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     restart: always
 
 volumes:

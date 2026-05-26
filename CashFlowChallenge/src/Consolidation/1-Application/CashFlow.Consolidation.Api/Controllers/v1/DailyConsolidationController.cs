@@ -2,6 +2,7 @@
 using CashFlow.Consolidation.Api.Controllers.Base;
 using CashFlow.Consolidation.Domain.Interfaces;
 using CashFlow.Consolidation.Domain.Notifications;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CashFlow.Consolidation.Api.Controllers;
@@ -21,6 +22,7 @@ public class DailyConsolidationController : MainController
         _service = service;
     }
 
+    [Authorize(Roles = "daily-consolidations")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -29,6 +31,7 @@ public class DailyConsolidationController : MainController
         return CustomResponse(result);
     }
 
+    [Authorize(Roles = "daily-consolidations-reprocess")]
     [HttpPost("reprocess")]
     public async Task<IActionResult> Reprocess()
     {
