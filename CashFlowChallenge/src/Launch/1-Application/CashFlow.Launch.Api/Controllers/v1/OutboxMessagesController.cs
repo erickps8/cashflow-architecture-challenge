@@ -2,6 +2,7 @@
 using CashFlow.Launch.Api.Controllers.Base;
 using CashFlow.Launch.Domain.Interfaces;
 using CashFlow.Launch.Domain.Notifications;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CashFlow.Launch.Api.Controllers.v1;
@@ -21,6 +22,7 @@ public class OutboxMessagesController : MainController
         _repository = repository;
     }
 
+    [Authorize(Roles = "outbox-messages")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {

@@ -3,6 +3,7 @@ using CashFlow.Launch.Api.Controllers.Base;
 using CashFlow.Launch.Api.Dtos.Requests;
 using CashFlow.Launch.Domain.Interfaces.Services;
 using CashFlow.Launch.Domain.Notifications;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CashFlow.Launch.Api.Controllers;
@@ -21,6 +22,7 @@ public class EntriesController : MainController
         _service = service;
     }
 
+    [Authorize(Roles = "entries-create")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateEntryRequest request)
     {
@@ -33,6 +35,7 @@ public class EntriesController : MainController
         return CustomResponse(result);
     }
 
+    [Authorize(Roles = "entries")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
