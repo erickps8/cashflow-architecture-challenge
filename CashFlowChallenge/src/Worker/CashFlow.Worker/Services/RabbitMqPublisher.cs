@@ -5,7 +5,7 @@ using RabbitMQ.Client;
 
 namespace CashFlow.Worker.Services;
 
-public class RabbitMqPublisher
+public class RabbitMqPublisher : IRabbitMqPublisher
 {
     private const string QueueName = "cashflow.entry-created.queue";
 

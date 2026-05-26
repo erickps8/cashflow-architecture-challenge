@@ -27,7 +27,7 @@ public class Worker : BackgroundService
                 scope.ServiceProvider.GetRequiredService<IOutboxMessageRepository>();
 
             var publisher =
-                scope.ServiceProvider.GetRequiredService<RabbitMqPublisher>();
+                scope.ServiceProvider.GetRequiredService<IRabbitMqPublisher>();
 
             var pendingMessages = await repository.GetPendingAsync();
 
