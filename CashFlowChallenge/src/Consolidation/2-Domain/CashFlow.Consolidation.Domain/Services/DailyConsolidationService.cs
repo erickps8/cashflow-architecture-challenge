@@ -34,21 +34,18 @@ public class DailyConsolidationService : IDailyConsolidationService
     {
         try
         {
-            var consolidation = await _repository.GetByDateAsync(DateTime.Today);
+            var consolidation =
+                await _repository.GetByDateAsync(DateTime.Today);
 
             if (consolidation is null)
             {
-                consolidation = new DailyConsolidation
-                {
-                    Date = DateTime.Today
-                };
+                Notify("Não existe consolidação para reprocessar.");
 
-                await _repository.AddAsync(consolidation);
+                return null!;
             }
 
-            consolidation.TotalCredits = 1000;
-            consolidation.TotalDebits = 250;
-            consolidation.Balance = 750;
+            consolidation.Balance =
+                consolidation.TotalCredits - consolidation.TotalDebits;
 
             await _repository.SaveChangesAsync();
 
@@ -58,7 +55,7 @@ public class DailyConsolidationService : IDailyConsolidationService
         {
             Notify($"Erro ao reprocessar consolidação: {ex.Message}");
 
-            throw;
+            return null!;
         }
     }
 
