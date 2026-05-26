@@ -35,7 +35,7 @@ public class DailyConsolidationService : IDailyConsolidationService
         try
         {
             var consolidation =
-                await _repository.GetByDateAsync(DateTime.Today);
+                await _repository.GetByDateAsync(DateTime.UtcNow.Date);
 
             if (consolidation is null)
             {
