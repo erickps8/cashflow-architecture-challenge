@@ -96,5 +96,20 @@ services:
       - auth-api
     restart: unless-stopped
 
+  homolog-seed:
+    image: postgres:16
+    container_name: cashflow-homolog-seed
+    environment:
+      PGPASSWORD: cashflow
+    volumes:
+      - ./docker/homologacao:/seed:ro
+    command: ["sh", "/seed/run-seed.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      launch-api:
+        condition: service_started
+    restart: "no"
+
 volumes:
   cashflow_postgres_data:
