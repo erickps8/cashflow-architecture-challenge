@@ -15,4 +15,5 @@ public class CashFlowDbContext : DbContext
     public DbSet<CreditCard> CreditCards { get; set; }
     public DbSet<CreditCardPurchase> CreditCardPurchases { get; set; }
     public DbSet<CreditCardInstallment> CreditCardInstallments { get; set; }
+    public DbSet<MonthlyBudget> MonthlyBudgets { get; set; }
 }
