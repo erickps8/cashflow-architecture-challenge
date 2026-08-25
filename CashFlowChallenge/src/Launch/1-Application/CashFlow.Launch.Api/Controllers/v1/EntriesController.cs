@@ -19,7 +19,7 @@ public class EntriesController : MainController
         _service = service;
     }
 
-    [Authorize(Roles = "entries-create")]
+    [Authorize(Roles = "entries-create,gestor")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateEntryRequest request)
     {
@@ -27,11 +27,11 @@ public class EntriesController : MainController
         return CustomResponse(result);
     }
 
-    [Authorize(Roles = "entries")]
+    [Authorize(Roles = "entries,gestor")]
     [HttpGet]
     public async Task<IActionResult> GetAll() => CustomResponse(await _service.GetAllAsync());
 
-    [Authorize(Roles = "entries")]
+    [Authorize(Roles = "entries,gestor")]
     [HttpGet("monthly/{year:int}/{month:int}")]
     public async Task<IActionResult> GetByMonth(int year, int month)
     {
