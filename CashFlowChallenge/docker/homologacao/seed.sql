@@ -1,0 +1,88 @@
+-- Base descartavel de homologacao. Valores aproximados, baseados no cenario conhecido.
+-- Branch exclusiva: homolog/personal-finance-seed
+
+BEGIN;
+
+-- Contas
+INSERT INTO "Accounts" ("Id","Name","Type","InitialBalance","IsActive","CreatedAt") VALUES
+('10000000-0000-0000-0000-000000000001','Conta principal',0,1000,true,NOW()),
+('10000000-0000-0000-0000-000000000002','PicPay',0,0,true,NOW()),
+('10000000-0000-0000-0000-000000000003','BRB esposa',0,0,true,NOW())
+ON CONFLICT ("Id") DO UPDATE SET "Name"=EXCLUDED."Name","InitialBalance"=EXCLUDED."InitialBalance","IsActive"=true;
+
+-- Categorias de receita
+INSERT INTO "Categories" ("Id","Name","Type","IsActive","CreatedAt") VALUES
+('20000000-0000-0000-0000-000000000001','Salarios',1,true,NOW()),
+('20000000-0000-0000-0000-000000000002','Alugueis',1,true,NOW()),
+('20000000-0000-0000-0000-000000000003','Horas extras',1,true,NOW()),
+-- Categorias de despesa
+('20000000-0000-0000-0000-000000000101','Moradia',2,true,NOW()),
+('20000000-0000-0000-0000-000000000102','Escola',2,true,NOW()),
+('20000000-0000-0000-0000-000000000103','Consignado',2,true,NOW()),
+('20000000-0000-0000-0000-000000000104','Mercado',2,true,NOW()),
+('20000000-0000-0000-0000-000000000105','Lazer',2,true,NOW()),
+('20000000-0000-0000-0000-000000000106','Material escolar',2,true,NOW()),
+('20000000-0000-0000-0000-000000000107','Aniversarios',2,true,NOW()),
+('20000000-0000-0000-0000-000000000108','Compras gerais',2,true,NOW())
+ON CONFLICT ("Id") DO UPDATE SET "Name"=EXCLUDED."Name","Type"=EXCLUDED."Type","IsActive"=true;
+
+-- Receitas mensais aproximadas: 10k + 11k + 3k de alugueis.
+INSERT INTO "RecurringEntries" ("Id","Amount","Type","Description","AccountId","CategoryId","Frequency","StartAt","EndAt","NextOccurrenceAt","IsActive","CreatedAt") VALUES
+('30000000-0000-0000-0000-000000000001',10000,1,'Salario Erick - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',0,'2026-08-05T12:00:00Z',NULL,'2026-08-05T12:00:00Z',true,NOW()),
+('30000000-0000-0000-0000-000000000002',11000,1,'Salario esposa - HOMOLOGACAO','10000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001',0,'2026-08-05T12:00:00Z',NULL,'2026-08-05T12:00:00Z',true,NOW()),
+('30000000-0000-0000-0000-000000000003',3000,1,'Alugueis - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002',0,'2026-08-10T12:00:00Z',NULL,'2026-08-10T12:00:00Z',true,NOW()),
+-- Despesas conhecidas
+('30000000-0000-0000-0000-000000000101',2100,2,'Financiamento casa 1 - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000101',0,'2026-08-10T12:00:00Z',NULL,'2026-08-10T12:00:00Z',true,NOW()),
+('30000000-0000-0000-0000-000000000102',4400,2,'Financiamento casa 2 - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000101',0,'2026-08-15T12:00:00Z',NULL,'2026-08-15T12:00:00Z',true,NOW()),
+('30000000-0000-0000-0000-000000000103',1800,2,'Consignado - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000103',0,'2026-08-15T12:00:00Z','2029-04-30T23:59:59Z','2026-08-15T12:00:00Z',true,NOW()),
+('30000000-0000-0000-0000-000000000104',2700,2,'Escola das criancas - HOMOLOGACAO','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000102',0,'2026-08-05T12:00:00Z','2026-12-31T23:59:59Z','2026-08-05T12:00:00Z',true,NOW())
+ON CONFLICT ("Id") DO UPDATE SET "Amount"=EXCLUDED."Amount","Description"=EXCLUDED."Description","EndAt"=EXCLUDED."EndAt","IsActive"=true;
+
+-- Eventos pontuais conhecidos/estimados para comparacao do segundo semestre.
+INSERT INTO "Entries" ("Id","Amount","Type","Description","OccurredAt","CreatedAt","AccountId","CategoryId","IsRecurring") VALUES
+('40000000-0000-0000-0000-000000000001',10000,1,'Horas extras do casal - HOMOLOGACAO','2026-08-20T12:00:00Z',NOW(),'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003',false),
+('40000000-0000-0000-0000-000000000002',4450,2,'Prestacao imobiliaria em atraso - HOMOLOGACAO','2026-08-20T12:00:00Z',NOW(),'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000101',false),
+('40000000-0000-0000-0000-000000000003',2500,2,'Festa Alice - HOMOLOGACAO','2026-09-18T12:00:00Z',NOW(),'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000107',false)
+ON CONFLICT ("Id") DO UPDATE SET "Amount"=EXCLUDED."Amount","Description"=EXCLUDED."Description","OccurredAt"=EXCLUDED."OccurredAt";
+
+-- Cartao BRB
+INSERT INTO "CreditCards" ("Id","Name","Limit","ClosingDay","DueDay","IsActive","CreatedAt") VALUES
+('50000000-0000-0000-0000-000000000001','BRB',10000,20,28,true,NOW())
+ON CONFLICT ("Id") DO UPDATE SET "Limit"=EXCLUDED."Limit","ClosingDay"=EXCLUDED."ClosingDay","DueDay"=EXCLUDED."DueDay","IsActive"=true;
+
+-- Material escolar: 3.000 em 12x de 250.
+INSERT INTO "CreditCardPurchases" ("Id","CreditCardId","CategoryId","Description","TotalAmount","InstallmentsCount","PurchaseDate","CreatedAt") VALUES
+('51000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000106','Material escolar 12x - HOMOLOGACAO',3000,12,'2026-08-15T12:00:00Z',NOW()),
+('51000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000108','Compras BRB atuais - HOMOLOGACAO',4750,1,'2026-08-10T12:00:00Z',NOW())
+ON CONFLICT ("Id") DO UPDATE SET "TotalAmount"=EXCLUDED."TotalAmount","Description"=EXCLUDED."Description";
+
+-- Parcelas material escolar: ago/26 a jul/27.
+INSERT INTO "CreditCardInstallments" ("Id","CreditCardPurchaseId","Number","Amount","ReferenceDate","DueDate","IsPaid","CreatedAt")
+SELECT md5('homolog-material-' || n)::uuid,
+       '51000000-0000-0000-0000-000000000001'::uuid,
+       n,250,
+       (date '2026-08-01' + ((n-1) || ' month')::interval)::timestamptz,
+       (date '2026-08-28' + ((n-1) || ' month')::interval)::timestamptz,
+       false,NOW()
+FROM generate_series(1,12) n
+ON CONFLICT ("Id") DO UPDATE SET "Amount"=EXCLUDED."Amount","ReferenceDate"=EXCLUDED."ReferenceDate","DueDate"=EXCLUDED."DueDate";
+
+-- Compras atuais BRB, deixando a fatura de agosto perto de 5 mil junto com material escolar.
+INSERT INTO "CreditCardInstallments" ("Id","CreditCardPurchaseId","Number","Amount","ReferenceDate","DueDate","IsPaid","CreatedAt") VALUES
+('52000000-0000-0000-0000-000000000001','51000000-0000-0000-0000-000000000002',1,4750,'2026-08-01T00:00:00Z','2026-08-28T00:00:00Z',false,NOW())
+ON CONFLICT ("Id") DO UPDATE SET "Amount"=EXCLUDED."Amount","IsPaid"=false;
+
+-- Orcamentos de homologacao. Mercado e lazer sao estimativas para dar visao no dashboard.
+INSERT INTO "MonthlyBudgets" ("Id","Year","Month","CategoryId","PlannedAmount","CreatedAt","UpdatedAt") VALUES
+('60000000-0000-0000-0000-000000000001',2026,8,'20000000-0000-0000-0000-000000000101',6500,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000002',2026,8,'20000000-0000-0000-0000-000000000102',2700,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000003',2026,8,'20000000-0000-0000-0000-000000000103',1800,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000004',2026,8,'20000000-0000-0000-0000-000000000104',2500,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000005',2026,8,'20000000-0000-0000-0000-000000000105',2500,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000006',2026,8,'20000000-0000-0000-0000-000000000106',250,NOW(),NOW()),
+('60000000-0000-0000-0000-000000000007',2026,9,'20000000-0000-0000-0000-000000000107',10000,NOW(),NOW())
+ON CONFLICT ("Id") DO UPDATE SET "PlannedAmount"=EXCLUDED."PlannedAmount","UpdatedAt"=NOW();
+
+COMMIT;
+
+SELECT 'Base de homologacao carregada com sucesso.' AS resultado;
