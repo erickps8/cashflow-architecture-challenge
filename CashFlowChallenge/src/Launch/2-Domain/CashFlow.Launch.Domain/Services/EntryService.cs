@@ -13,31 +13,58 @@ public class EntryService : IEntryService
     private readonly IEntryRepository _repository;
     private readonly INotificator _notificator;
     private readonly IOutboxMessageRepository _outboxRepository;
-    public EntryService(IEntryRepository repository, IOutboxMessageRepository outboxRepository, INotificator notificator)
+    private readonly IAccountRepository _accountRepository;
+    private readonly ICategoryRepository _categoryRepository;
+
+    public EntryService(IEntryRepository repository, IOutboxMessageRepository outboxRepository, INotificator notificator, IAccountRepository accountRepository, ICategoryRepository categoryRepository)
     {
         _repository = repository;
         _outboxRepository = outboxRepository;
         _notificator = notificator;
+        _accountRepository = accountRepository;
+        _categoryRepository = categoryRepository;
     }
 
-    public async Task<Entry?> CreateAsync(decimal amount, EntryType type, string description, DateTime occurredAt)
+    public async Task<Entry?> CreateAsync(decimal amount, EntryType type, string description, DateTime occurredAt, Guid? accountId = null, Guid? categoryId = null, bool isRecurring = false)
     {
         if (amount <= 0)
         {
-            _notificator.Handle(new Notification("Amount must be greater than zero."));
+            Notify("Amount must be greater than zero.");
             return null;
         }
 
-        occurredAt = DateTime.SpecifyKind(
-        occurredAt,
-        DateTimeKind.Utc);
+        if (accountId.HasValue && await _accountRepository.GetByIdAsync(accountId.Value) is null)
+        {
+            Notify("Account not found.");
+            return null;
+        }
+
+        if (categoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(categoryId.Value);
+            if (category is null)
+            {
+                Notify("Category not found.");
+                return null;
+            }
+            if (category.Type != type)
+            {
+                Notify("Category type must match entry type.");
+                return null;
+            }
+        }
+
+        occurredAt = DateTime.SpecifyKind(occurredAt, DateTimeKind.Utc);
 
         var entry = new Entry
         {
             Amount = amount,
             Type = type,
             Description = description,
-            OccurredAt = occurredAt
+            OccurredAt = occurredAt,
+            AccountId = accountId,
+            CategoryId = categoryId,
+            IsRecurring = isRecurring
         };
 
         await _repository.AddAsync(entry);
@@ -51,34 +78,28 @@ public class EntryService : IEntryService
             OccurredAt = entry.OccurredAt
         };
 
-        var outboxMessage = new OutboxMessage
+        await _outboxRepository.AddAsync(new OutboxMessage
         {
             Type = nameof(EntryCreatedEvent),
             Payload = JsonSerializer.Serialize(entryCreatedEvent)
-        };
-
-        await _outboxRepository.AddAsync(outboxMessage);
+        });
 
         await _repository.SaveChangesAsync();
-
         return entry;
     }
 
     public async Task<List<Entry>> GetAllAsync()
     {
-        try
-        {
-            return await _repository.GetAllAsync();
-        }
-        catch (Exception ex)
-        {
-            Notify($"Erro ao consultar lançamentos: {ex.Message}");
+        try { return await _repository.GetAllAsync(); }
+        catch (Exception ex) { Notify($"Erro ao consultar lançamentos: {ex.Message}"); return []; }
+    }
 
-            return [];
-        }
-    }
-    private void Notify(string message)
+    public Task<List<Entry>> GetByMonthAsync(int year, int month)
     {
-        _notificator.Handle(new Notification(message));
+        if (month < 1 || month > 12) return Task.FromResult(new List<Entry>());
+        var start = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+        return _repository.GetByPeriodAsync(start, start.AddMonths(1));
     }
+
+    private void Notify(string message) => _notificator.Handle(new Notification(message));
 }

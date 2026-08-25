@@ -5,6 +5,7 @@ namespace CashFlow.Launch.Domain.Interfaces.Services;
 
 public interface IEntryService
 {
-    Task<Entry?> CreateAsync(decimal amount, EntryType type, string description, DateTime occurredAt);
+    Task<Entry?> CreateAsync(decimal amount, EntryType type, string description, DateTime occurredAt, Guid? accountId = null, Guid? categoryId = null, bool isRecurring = false);
     Task<List<Entry>> GetAllAsync();
+    Task<List<Entry>> GetByMonthAsync(int year, int month);
 }

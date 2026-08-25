@@ -30,6 +30,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<ICategoryService, CategoryService>();
 
+        services.AddScoped<IRecurringEntryRepository, RecurringEntryRepository>();
+        services.AddScoped<IRecurringEntryService, RecurringEntryService>();
+
         return services;
     }
 }

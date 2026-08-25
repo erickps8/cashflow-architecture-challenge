@@ -14,10 +14,7 @@ public class EntriesController : MainController
 {
     private readonly IEntryService _service;
 
-    public EntriesController(
-        IEntryService service,
-        INotificator notificator)
-        : base(notificator)
+    public EntriesController(IEntryService service, INotificator notificator) : base(notificator)
     {
         _service = service;
     }
@@ -26,19 +23,19 @@ public class EntriesController : MainController
     [HttpPost]
     public async Task<IActionResult> Create(CreateEntryRequest request)
     {
-        var result = await _service.CreateAsync(
-            request.Amount,
-            request.Type,
-            request.Description,
-            request.OccurredAt);
-
+        var result = await _service.CreateAsync(request.Amount, request.Type, request.Description, request.OccurredAt, request.AccountId, request.CategoryId, request.IsRecurring);
         return CustomResponse(result);
     }
 
     [Authorize(Roles = "entries")]
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll() => CustomResponse(await _service.GetAllAsync());
+
+    [Authorize(Roles = "entries")]
+    [HttpGet("monthly/{year:int}/{month:int}")]
+    public async Task<IActionResult> GetByMonth(int year, int month)
     {
-        return CustomResponse(await _service.GetAllAsync());
+        if (month < 1 || month > 12) return BadRequest("Month must be between 1 and 12.");
+        return CustomResponse(await _service.GetByMonthAsync(year, month));
     }
 }
