@@ -1,10 +1,14 @@
 using System;
+using CashFlow.Launch.Infrastructure.Context;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace CashFlow.Launch.Infrastructure.Migrations
 {
+    [DbContext(typeof(CashFlowDbContext))]
+    [Migration("20260824210000_AddAccountsAndCategories")]
     public partial class AddAccountsAndCategories : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
