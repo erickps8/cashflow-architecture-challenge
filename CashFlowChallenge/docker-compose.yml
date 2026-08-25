@@ -84,5 +84,17 @@ services:
         condition: service_healthy
     restart: always
 
+  web:
+    build:
+      context: ./src/Web/cashflow-web
+      dockerfile: Dockerfile
+    container_name: cashflow-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - launch-api
+      - auth-api
+    restart: unless-stopped
+
 volumes:
   cashflow_postgres_data:
