@@ -33,6 +33,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICreditCardInstallmentRepository, CreditCardInstallmentRepository>();
         services.AddScoped<ICreditCardService, CreditCardService>();
 
+        services.AddScoped<IMonthlyBudgetRepository, MonthlyBudgetRepository>();
+        services.AddScoped<IMonthlyBudgetService, MonthlyBudgetService>();
+
         return services;
     }
 }
