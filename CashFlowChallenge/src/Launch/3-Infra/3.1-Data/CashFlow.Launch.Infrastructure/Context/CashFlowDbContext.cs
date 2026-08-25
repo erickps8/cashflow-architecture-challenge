@@ -12,4 +12,7 @@ public class CashFlowDbContext : DbContext
     public DbSet<Account> Accounts { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<RecurringEntry> RecurringEntries { get; set; }
+    public DbSet<CreditCard> CreditCards { get; set; }
+    public DbSet<CreditCardPurchase> CreditCardPurchases { get; set; }
+    public DbSet<CreditCardInstallment> CreditCardInstallments { get; set; }
 }
