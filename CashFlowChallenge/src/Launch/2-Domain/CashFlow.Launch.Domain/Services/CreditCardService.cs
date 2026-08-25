@@ -1,4 +1,5 @@
 using CashFlow.Launch.Domain.Entities;
+using CashFlow.Launch.Domain.Enums;
 using CashFlow.Launch.Domain.Interfaces;
 using CashFlow.Launch.Domain.Interfaces.Services;
 using CashFlow.Launch.Domain.Models;
@@ -34,8 +35,13 @@ public class CreditCardService : ICreditCardService
     public async Task<CreditCardPurchase?> CreatePurchaseAsync(Guid creditCardId, Guid? categoryId, string description, decimal totalAmount, int installmentsCount, DateTime purchaseDate)
     {
         var card = await _cardRepository.GetByIdAsync(creditCardId);
-        if (card is null || totalAmount <= 0 || installmentsCount < 1 || installmentsCount > 120) return null;
-        if (categoryId.HasValue && await _categoryRepository.GetByIdAsync(categoryId.Value) is null) return null;
+        if (card is null || string.IsNullOrWhiteSpace(description) || totalAmount <= 0 || installmentsCount < 1 || installmentsCount > 120) return null;
+
+        if (categoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(categoryId.Value);
+            if (category is null || category.Type != EntryType.Debit) return null;
+        }
 
         purchaseDate = DateTime.SpecifyKind(purchaseDate, DateTimeKind.Utc);
         var purchase = new CreditCardPurchase
