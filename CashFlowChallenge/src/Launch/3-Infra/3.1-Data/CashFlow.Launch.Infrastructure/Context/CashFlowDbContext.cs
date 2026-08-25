@@ -1,4 +1,4 @@
-﻿using CashFlow.Launch.Domain.Entities;
+using CashFlow.Launch.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CashFlow.Launch.Infrastructure.Context;
@@ -12,4 +12,6 @@ public class CashFlowDbContext : DbContext
 
     public DbSet<Entry> Entries { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<Account> Accounts { get; set; }
+    public DbSet<Category> Categories { get; set; }
 }
