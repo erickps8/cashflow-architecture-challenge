@@ -9,11 +9,13 @@ public class MonthlyBalanceService : IMonthlyBalanceService
 {
     private readonly IEntryRepository _entryRepository;
     private readonly ICreditCardInstallmentRepository _installmentRepository;
+    private readonly IRecurringEntryRepository _recurringEntryRepository;
 
-    public MonthlyBalanceService(IEntryRepository entryRepository, ICreditCardInstallmentRepository installmentRepository)
+    public MonthlyBalanceService(IEntryRepository entryRepository, ICreditCardInstallmentRepository installmentRepository, IRecurringEntryRepository recurringEntryRepository)
     {
         _entryRepository = entryRepository;
         _installmentRepository = installmentRepository;
+        _recurringEntryRepository = recurringEntryRepository;
     }
 
     public async Task<MonthlyBalanceSummary> GetMonthAsync(int year, int month, decimal openingBalance = 0)
@@ -22,6 +24,32 @@ public class MonthlyBalanceService : IMonthlyBalanceService
         var end = start.AddMonths(1);
         var entries = await _entryRepository.GetByPeriodAsync(start, end);
         var installments = await _installmentRepository.GetByReferenceAsync(year, month);
+        var recurringEntries = await _recurringEntryRepository.GetAllAsync();
+
+        decimal recurringIncome = 0;
+        decimal recurringExpense = 0;
+
+        foreach (var recurring in recurringEntries.Where(x => x.IsActive))
+        {
+            var occurrence = recurring.NextOccurrenceAt;
+            while (occurrence < end)
+            {
+                if (recurring.EndAt.HasValue && occurrence > recurring.EndAt.Value) break;
+
+                if (occurrence >= start)
+                {
+                    if (recurring.Type == EntryType.Credit) recurringIncome += recurring.Amount;
+                    else if (recurring.Type == EntryType.Debit) recurringExpense += recurring.Amount;
+                }
+
+                occurrence = recurring.Frequency switch
+                {
+                    RecurrenceFrequency.Weekly => occurrence.AddDays(7),
+                    RecurrenceFrequency.Yearly => occurrence.AddYears(1),
+                    _ => occurrence.AddMonths(1)
+                };
+            }
+        }
 
         return new MonthlyBalanceSummary
         {
@@ -29,7 +57,9 @@ public class MonthlyBalanceService : IMonthlyBalanceService
             Month = month,
             OpeningBalance = openingBalance,
             IncomeAmount = entries.Where(x => x.Type == EntryType.Credit).Sum(x => x.Amount),
+            RecurringIncomeAmount = recurringIncome,
             DirectExpenseAmount = entries.Where(x => x.Type == EntryType.Debit).Sum(x => x.Amount),
+            RecurringExpenseAmount = recurringExpense,
             CreditCardAmount = installments.Sum(x => x.Amount)
         };
     }
