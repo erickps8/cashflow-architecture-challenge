@@ -25,6 +25,11 @@ public static class DependencyInjectionExtensions
         services.AddScoped<INotificator, Notificator>();
         services.AddScoped<IEntryRepository, EntryRepository>();
 
+        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<ICategoryService, CategoryService>();
+
         return services;
     }
 }
