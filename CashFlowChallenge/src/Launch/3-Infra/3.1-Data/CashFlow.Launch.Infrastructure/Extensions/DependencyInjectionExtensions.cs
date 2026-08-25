@@ -36,6 +36,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IMonthlyBudgetRepository, MonthlyBudgetRepository>();
         services.AddScoped<IMonthlyBudgetService, MonthlyBudgetService>();
 
+        services.AddScoped<IMonthlyBalanceService, MonthlyBalanceService>();
+
         return services;
     }
 }
