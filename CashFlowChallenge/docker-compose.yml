@@ -103,7 +103,7 @@ services:
       PGPASSWORD: cashflow
     volumes:
       - ./docker/homologacao:/seed:ro
-    command: ["sh", "/seed/run-seed.sh"]
+    command: ["sh", "-c", "sed 's/\\r$//' /seed/run-seed.sh > /tmp/run-seed.sh && sh /tmp/run-seed.sh"]
     depends_on:
       postgres:
         condition: service_healthy
