@@ -20,4 +20,13 @@ public class CreditCardInstallmentRepository : BaseRepository<CreditCardInstallm
             .OrderBy(x => x.DueDate)
             .ToListAsync();
     }
+
+    public Task<List<CreditCardInstallment>> GetByReferenceAsync(int year, int month)
+    {
+        return _context.CreditCardInstallments
+            .AsNoTracking()
+            .Include(x => x.CreditCardPurchase)
+            .Where(x => x.ReferenceDate.Year == year && x.ReferenceDate.Month == month)
+            .ToListAsync();
+    }
 }
