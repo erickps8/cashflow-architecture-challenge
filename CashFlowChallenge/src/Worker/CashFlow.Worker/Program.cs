@@ -1,4 +1,5 @@
 using CashFlow.Consolidation.Infra.Extensions;
+using CashFlow.Launch.Domain.Interfaces;
 using CashFlow.Launch.Infrastructure.Extensions;
 using CashFlow.Worker;
 using CashFlow.Worker.Configurations;
@@ -6,6 +7,7 @@ using CashFlow.Worker.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+builder.Services.AddSingleton<ITenantContext, SystemTenantContext>();
 builder.Services.AddHostedService<Worker>();
 
 builder.Services.AddLaunchInfrastructure(
