@@ -4,7 +4,7 @@ export type Account={id:string;name:string;type:number;initialBalance:number;isA
 export type Category={id:string;name:string;type:number;isActive:boolean}
 export type Entry={id:string;amount:number;type:number;description:string;occurredAt:string;isRecurring:boolean;accountId?:string;categoryId?:string}
 export type Card={id:string;name:string;limit:number;closingDay:number;dueDay:number;isActive:boolean}
-export type Invoice={creditCardId:string;creditCardName:string;year:number;month:number;dueDate:string;totalAmount:number;paidAmount:number;openAmount:number;items:{installmentId:string;purchaseId:string;description:string;installmentNumber:number;installmentsCount:number;amount:number;isPaid:boolean;categoryId?:string}[]}
+export type Invoice={creditCardId:string;creditCardName:string;year:number;month:number;dueDate:string;totalAmount:number;paidAmount:number;openAmount:number;items:{installmentId:string;purchaseId:string;description:string;purchaseTotalAmount:number;purchaseDate:string;installmentNumber:number;installmentsCount:number;amount:number;isPaid:boolean;categoryId?:string}[]}
 export type Budget={year:number;month:number;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean;categories:{categoryId:string;categoryName:string;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean}[]}
 export type Recurring={id:string;amount:number;type:number;description:string;frequency:number;startAt:string;endAt?:string;nextOccurrenceAt:string;isActive:boolean;accountId?:string;categoryId?:string}
 const tokenKey='cashflow_token';export const session={get token(){return localStorage.getItem(tokenKey)},set(t:string){localStorage.setItem(tokenKey,t)},clear(){localStorage.removeItem(tokenKey)}}
