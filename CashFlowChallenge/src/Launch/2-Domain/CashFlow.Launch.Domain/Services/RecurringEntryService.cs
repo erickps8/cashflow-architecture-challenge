@@ -8,93 +8,14 @@ namespace CashFlow.Launch.Domain.Services;
 
 public class RecurringEntryService : IRecurringEntryService
 {
-    private readonly IRecurringEntryRepository _repository;
-    private readonly IEntryService _entryService;
-    private readonly IAccountRepository _accountRepository;
-    private readonly ICategoryRepository _categoryRepository;
-    private readonly INotificator _notificator;
+    private readonly IRecurringEntryRepository _repository; private readonly IEntryService _entryService; private readonly IAccountRepository _accountRepository; private readonly ICategoryRepository _categoryRepository; private readonly INotificator _notificator;
+    public RecurringEntryService(IRecurringEntryRepository repository,IEntryService entryService,IAccountRepository accountRepository,ICategoryRepository categoryRepository,INotificator notificator){_repository=repository;_entryService=entryService;_accountRepository=accountRepository;_categoryRepository=categoryRepository;_notificator=notificator;}
 
-    public RecurringEntryService(IRecurringEntryRepository repository, IEntryService entryService, IAccountRepository accountRepository, ICategoryRepository categoryRepository, INotificator notificator)
-    {
-        _repository = repository;
-        _entryService = entryService;
-        _accountRepository = accountRepository;
-        _categoryRepository = categoryRepository;
-        _notificator = notificator;
-    }
-
-    public async Task<RecurringEntry?> CreateAsync(decimal amount, EntryType type, string description, Guid? accountId, Guid? categoryId, RecurrenceFrequency frequency, DateTime startAt, DateTime? endAt)
-    {
-        if (amount <= 0) { Notify("Amount must be greater than zero."); return null; }
-        if (accountId.HasValue && await _accountRepository.GetByIdAsync(accountId.Value) is null) { Notify("Account not found."); return null; }
-        if (categoryId.HasValue)
-        {
-            var category = await _categoryRepository.GetByIdAsync(categoryId.Value);
-            if (category is null) { Notify("Category not found."); return null; }
-            if (category.Type != type) { Notify("Category type must match entry type."); return null; }
-        }
-
-        startAt = DateTime.SpecifyKind(startAt, DateTimeKind.Utc);
-        if (endAt.HasValue) endAt = DateTime.SpecifyKind(endAt.Value, DateTimeKind.Utc);
-        if (endAt.HasValue && endAt.Value < startAt) { Notify("End date must be greater than or equal to start date."); return null; }
-
-        var recurring = new RecurringEntry
-        {
-            Amount = amount,
-            Type = type,
-            Description = description,
-            AccountId = accountId,
-            CategoryId = categoryId,
-            Frequency = frequency,
-            StartAt = startAt,
-            EndAt = endAt,
-            NextOccurrenceAt = startAt
-        };
-
-        await _repository.AddAsync(recurring);
-        await _repository.SaveChangesAsync();
-        return recurring;
-    }
-
-    public Task<List<RecurringEntry>> GetAllAsync() => _repository.GetAllAsync();
-
-    public async Task<int> GenerateDueEntriesAsync(DateTime until)
-    {
-        until = DateTime.SpecifyKind(until, DateTimeKind.Utc);
-        var recurringEntries = await _repository.GetDueAsync(until);
-        var generated = 0;
-
-        foreach (var recurring in recurringEntries)
-        {
-            while (recurring.IsActive && recurring.NextOccurrenceAt <= until)
-            {
-                if (recurring.EndAt.HasValue && recurring.NextOccurrenceAt > recurring.EndAt.Value)
-                {
-                    recurring.IsActive = false;
-                    break;
-                }
-
-                var entry = await _entryService.CreateAsync(recurring.Amount, recurring.Type, recurring.Description, recurring.NextOccurrenceAt, recurring.AccountId, recurring.CategoryId, true);
-                if (entry is null) break;
-
-                generated++;
-                recurring.NextOccurrenceAt = GetNext(recurring.NextOccurrenceAt, recurring.Frequency);
-
-                if (recurring.EndAt.HasValue && recurring.NextOccurrenceAt > recurring.EndAt.Value)
-                    recurring.IsActive = false;
-            }
-        }
-
-        await _repository.SaveChangesAsync();
-        return generated;
-    }
-
-    private static DateTime GetNext(DateTime current, RecurrenceFrequency frequency) => frequency switch
-    {
-        RecurrenceFrequency.Weekly => current.AddDays(7),
-        RecurrenceFrequency.Yearly => current.AddYears(1),
-        _ => current.AddMonths(1)
-    };
-
-    private void Notify(string message) => _notificator.Handle(new Notification(message));
+    public async Task<RecurringEntry?> CreateAsync(decimal amount,EntryType type,string description,Guid? accountId,Guid? categoryId,RecurrenceFrequency frequency,DateTime startAt,DateTime? endAt){if(!await ValidateAsync(amount,type,accountId,categoryId,startAt,endAt))return null;startAt=Utc(startAt);endAt=endAt.HasValue?Utc(endAt.Value):null;var x=new RecurringEntry{Amount=amount,Type=type,Description=description,AccountId=accountId,CategoryId=categoryId,Frequency=frequency,StartAt=startAt,EndAt=endAt,NextOccurrenceAt=startAt};await _repository.AddAsync(x);await _repository.SaveChangesAsync();return x;}
+    public async Task<RecurringEntry?> UpdateAsync(Guid id,decimal amount,EntryType type,string description,Guid? accountId,Guid? categoryId,RecurrenceFrequency frequency,DateTime startAt,DateTime? endAt,bool isActive){var x=await _repository.GetByIdAsync(id);if(x is null){Notify("Recorrência não encontrada.");return null;}if(!await ValidateAsync(amount,type,accountId,categoryId,startAt,endAt))return null;var oldStart=x.StartAt;x.Amount=amount;x.Type=type;x.Description=description;x.AccountId=accountId;x.CategoryId=categoryId;x.Frequency=frequency;x.StartAt=Utc(startAt);x.EndAt=endAt.HasValue?Utc(endAt.Value):null;x.IsActive=isActive;if(x.NextOccurrenceAt==oldStart)x.NextOccurrenceAt=x.StartAt;_repository.Update(x);await _repository.SaveChangesAsync();return x;}
+    public async Task<bool> DeleteAsync(Guid id){var x=await _repository.GetByIdAsync(id);if(x is null){Notify("Recorrência não encontrada.");return false;}_repository.Remove(x);await _repository.SaveChangesAsync();return true;}
+    public Task<List<RecurringEntry>> GetAllAsync()=>_repository.GetAllAsync();
+    public async Task<int> GenerateDueEntriesAsync(DateTime until){until=Utc(until);var items=await _repository.GetDueAsync(until);var generated=0;foreach(var x in items){while(x.IsActive&&x.NextOccurrenceAt<=until){if(x.EndAt.HasValue&&x.NextOccurrenceAt>x.EndAt.Value){x.IsActive=false;break;}var entry=await _entryService.CreateAsync(x.Amount,x.Type,x.Description,x.NextOccurrenceAt,x.AccountId,x.CategoryId,true);if(entry is null)break;generated++;x.NextOccurrenceAt=GetNext(x.NextOccurrenceAt,x.Frequency);if(x.EndAt.HasValue&&x.NextOccurrenceAt>x.EndAt.Value)x.IsActive=false;}}await _repository.SaveChangesAsync();return generated;}
+    private async Task<bool> ValidateAsync(decimal amount,EntryType type,Guid? accountId,Guid? categoryId,DateTime startAt,DateTime? endAt){if(amount<=0){Notify("Amount must be greater than zero.");return false;}if(accountId.HasValue&&await _accountRepository.GetByIdAsync(accountId.Value)is null){Notify("Account not found.");return false;}if(categoryId.HasValue){var c=await _categoryRepository.GetByIdAsync(categoryId.Value);if(c is null){Notify("Category not found.");return false;}if(c.Type!=type){Notify("Category type must match entry type.");return false;}}if(endAt.HasValue&&endAt.Value<startAt){Notify("End date must be greater than or equal to start date.");return false;}return true;}
+    private static DateTime Utc(DateTime x)=>DateTime.SpecifyKind(x,DateTimeKind.Utc);private static DateTime GetNext(DateTime x,RecurrenceFrequency f)=>f switch{RecurrenceFrequency.Weekly=>x.AddDays(7),RecurrenceFrequency.Yearly=>x.AddYears(1),_=>x.AddMonths(1)};private void Notify(string m)=>_notificator.Handle(new Notification(m));
 }
