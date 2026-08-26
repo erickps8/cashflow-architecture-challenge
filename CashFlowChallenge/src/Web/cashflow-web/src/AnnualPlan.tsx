@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import * as api from './api';
+import './annual.css';
 
 const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const money=(v:number)=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
