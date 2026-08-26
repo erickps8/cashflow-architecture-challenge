@@ -1,8 +1,12 @@
+using CashFlow.Auth.Api.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 namespace CashFlow.Auth.Api.Migrations;
 
+[DbContext(typeof(AuthDbContext))]
+[Migration("20260826220000_AddCashFlowGroups")]
 public partial class AddCashFlowGroups : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
