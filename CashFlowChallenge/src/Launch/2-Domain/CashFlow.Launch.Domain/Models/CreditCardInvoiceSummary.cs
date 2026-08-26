@@ -1,26 +1,3 @@
 namespace CashFlow.Launch.Domain.Models;
-
-public class CreditCardInvoiceSummary
-{
-    public Guid CreditCardId { get; set; }
-    public string CreditCardName { get; set; } = string.Empty;
-    public int Year { get; set; }
-    public int Month { get; set; }
-    public DateTime DueDate { get; set; }
-    public decimal TotalAmount { get; set; }
-    public decimal PaidAmount { get; set; }
-    public decimal OpenAmount => TotalAmount - PaidAmount;
-    public List<CreditCardInvoiceItem> Items { get; set; } = [];
-}
-
-public class CreditCardInvoiceItem
-{
-    public Guid InstallmentId { get; set; }
-    public Guid PurchaseId { get; set; }
-    public string Description { get; set; } = string.Empty;
-    public int InstallmentNumber { get; set; }
-    public int InstallmentsCount { get; set; }
-    public decimal Amount { get; set; }
-    public bool IsPaid { get; set; }
-    public Guid? CategoryId { get; set; }
-}
+public class CreditCardInvoiceSummary{public Guid CreditCardId{get;set;}public string CreditCardName{get;set;}=string.Empty;public int Year{get;set;}public int Month{get;set;}public DateTime DueDate{get;set;}public decimal TotalAmount{get;set;}public decimal PaidAmount{get;set;}public decimal OpenAmount=>TotalAmount-PaidAmount;public List<CreditCardInvoiceItem> Items{get;set;}=[];}
+public class CreditCardInvoiceItem{public Guid InstallmentId{get;set;}public Guid PurchaseId{get;set;}public string Description{get;set;}=string.Empty;public decimal PurchaseTotalAmount{get;set;}public DateTime PurchaseDate{get;set;}public int InstallmentNumber{get;set;}public int InstallmentsCount{get;set;}public decimal Amount{get;set;}public bool IsPaid{get;set;}public Guid? CategoryId{get;set;}}
