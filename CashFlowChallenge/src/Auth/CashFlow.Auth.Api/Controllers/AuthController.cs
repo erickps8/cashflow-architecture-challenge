@@ -1,128 +1,14 @@
-﻿using CashFlow.Auth.Api.Models;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
+using CashFlow.Auth.Api.Data;using CashFlow.Auth.Api.Models;using Google.Apis.Auth;using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Identity;using Microsoft.AspNetCore.Mvc;using Microsoft.EntityFrameworkCore;using Microsoft.IdentityModel.Tokens;using System.IdentityModel.Tokens.Jwt;using System.Security.Claims;using System.Text;
 namespace CashFlow.Auth.Api.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
-{
-    private readonly UserManager<IdentityUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
-    private readonly IConfiguration _configuration;
-
-    public AuthController(
-        UserManager<IdentityUser> userManager,
-        RoleManager<IdentityRole> roleManager,
-        IConfiguration configuration)
-    {
-        _userManager = userManager;
-        _roleManager = roleManager;
-        _configuration = configuration;
-    }
-
-    [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequest request)
-    {
-        var user = new IdentityUser
-        {
-            UserName = request.Username,
-            Email = request.Email
-        };
-
-        var result =
-            await _userManager.CreateAsync(
-                user,
-                request.Password);
-
-        if (!result.Succeeded)
-        {
-            return BadRequest(result.Errors);
-        }
-
-        foreach (var role in request.Roles)
-        {
-            if (!await _roleManager.RoleExistsAsync(role))
-            {
-                await _roleManager.CreateAsync(
-                    new IdentityRole(role));
-            }
-
-            await _userManager.AddToRoleAsync(
-                user,
-                role);
-        }
-
-        return Ok(new
-        {
-            message = "Usuário criado com sucesso.",
-            username = user.UserName,
-            roles = request.Roles
-        });
-    }
-
-    [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequest request)
-    {
-        var user =
-            await _userManager.FindByNameAsync(
-                request.Username);
-
-        if (user is null)
-        {
-            return Unauthorized();
-        }
-
-        var validPassword =
-            await _userManager.CheckPasswordAsync(
-                user,
-                request.Password);
-
-        if (!validPassword)
-        {
-            return Unauthorized();
-        }
-
-        var roles =
-            await _userManager.GetRolesAsync(user);
-
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.UserName!)
-        };
-
-        foreach (var role in roles)
-        {
-            claims.Add(
-                new Claim(ClaimTypes.Role, role));
-        }
-
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(
-                _configuration["Jwt:Key"]!));
-
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(2),
-            signingCredentials: credentials);
-
-        return Ok(new
-        {
-            token = new JwtSecurityTokenHandler()
-                .WriteToken(token),
-            username = user.UserName,
-            roles
-        });
-    }
-}
+[ApiController][Route("api/[controller]")]public class AuthController:ControllerBase{readonly UserManager<IdentityUser> _users;readonly AuthDbContext _db;readonly IConfiguration _config;static readonly Guid LegacyGroupId=new("11111111-1111-1111-1111-111111111111");static readonly string[] DefaultFunctionalRoles=["entries","entries-create"];public AuthController(UserManager<IdentityUser> users,AuthDbContext db,IConfiguration config){_users=users;_db=db;_config=config;}
+[HttpGet("groups/check")]public async Task<IActionResult> CheckGroup([FromQuery]string name){var n=Normalize(name);if(string.IsNullOrWhiteSpace(n))return BadRequest("Informe o nome do grupo.");var g=await _db.Groups.AsNoTracking().FirstOrDefaultAsync(x=>x.NormalizedName==n);return Ok(new{exists=g is not null,name=g?.Name??name.Trim()});}
+[HttpPost("register")]public async Task<IActionResult> Register(RegisterRequest r){if(string.IsNullOrWhiteSpace(r.GroupName))return BadRequest("Informe o grupo.");if(string.IsNullOrWhiteSpace(r.Email))return BadRequest("Informe o e-mail.");if(await _users.FindByEmailAsync(r.Email)is not null)return Conflict("E-mail já cadastrado.");var email=r.Email.Trim();var u=new IdentityUser{UserName=email,Email=email};var cr=await _users.CreateAsync(u,r.Password);if(!cr.Succeeded)return BadRequest(cr.Errors);try{var m=await JoinOrCreateGroup(u.Id,r.GroupName);return Ok(State(u,m,m.Status==GroupMemberStatus.Active?Token(u,m):null,r.Username.Trim()));}catch{await _users.DeleteAsync(u);throw;}}
+[HttpPost("login")]public async Task<IActionResult> Login(LoginRequest r){var u=await _users.FindByNameAsync(r.Username)??await _users.FindByEmailAsync(r.Username);if(u is null||!await _users.CheckPasswordAsync(u,r.Password))return Unauthorized();return Ok(await BuildLogin(u));}
+[HttpPost("google")]public async Task<IActionResult> Google(GoogleLoginRequest r){var cid=_config["Google:ClientId"];if(string.IsNullOrWhiteSpace(cid))return StatusCode(503,"Login Google não configurado.");GoogleJsonWebSignature.Payload p;try{p=await GoogleJsonWebSignature.ValidateAsync(r.IdToken,new GoogleJsonWebSignature.ValidationSettings{Audience=[cid]});}catch{return Unauthorized("Token Google inválido.");}var u=await _users.FindByEmailAsync(p.Email);if(u is null){u=new IdentityUser{UserName=p.Email,Email=p.Email,EmailConfirmed=true};var cr=await _users.CreateAsync(u);if(!cr.Succeeded)return BadRequest(cr.Errors);return Ok(new{token=Token(u,null),requiresGroup=true,email=u.Email,name=p.Name});}return Ok(await BuildLogin(u));}
+[Authorize][HttpPost("group")]public async Task<IActionResult> ChooseGroup(GroupChoiceRequest r){var u=await CurrentUser();if(u is null)return Unauthorized();if(await _db.GroupMemberships.AnyAsync(x=>x.UserId==u.Id&&x.Status!=GroupMemberStatus.Rejected))return Conflict("Usuário já possui grupo ou solicitação pendente.");var m=await JoinOrCreateGroup(u.Id,r.GroupName);return Ok(State(u,m,m.Status==GroupMemberStatus.Active?Token(u,m):null));}
+[Authorize][HttpGet("group/members")]public async Task<IActionResult> Members(){var me=await CurrentMembership();if(me is null)return Forbid();var ms=await _db.GroupMemberships.Where(x=>x.GroupId==me.GroupId).OrderBy(x=>x.Status).ToListAsync();var result=new List<object>();foreach(var m in ms){var u=await _users.FindByIdAsync(m.UserId);result.Add(new{id=m.Id,email=u?.Email,username=u?.UserName,status=m.Status.ToString(),role=m.Role.ToString()});}return Ok(result);}
+[Authorize][HttpPut("group/members/{id:guid}")]public async Task<IActionResult> Decide(Guid id,MembershipDecisionRequest r){var me=await CurrentMembership();if(me is null||me.Role!=GroupMemberRole.Owner||me.Status!=GroupMemberStatus.Active)return Forbid();var t=await _db.GroupMemberships.FirstOrDefaultAsync(x=>x.Id==id&&x.GroupId==me.GroupId);if(t is null)return NotFound();if(t.Role==GroupMemberRole.Owner)return BadRequest();t.Status=r.Approve?GroupMemberStatus.Active:GroupMemberStatus.Rejected;await _db.SaveChangesAsync();return NoContent();}
+async Task<object> BuildLogin(IdentityUser u){var m=await _db.GroupMemberships.Include(x=>x.Group).FirstOrDefaultAsync(x=>x.UserId==u.Id&&x.Status!=GroupMemberStatus.Rejected);if(m?.GroupId==LegacyGroupId)m=await MoveLegacyNamedGroupToFreshTenant(m.Group,u.Id);return State(u,m,m?.Status==GroupMemberStatus.Active?Token(u,m):m is null?Token(u,null):null);}object State(IdentityUser u,GroupMembership? m,string? token,string? displayName=null)=>new{token,username=displayName??u.UserName,email=u.Email,requiresGroup=m is null,pendingApproval=m?.Status==GroupMemberStatus.Pending,group=m is null?null:new{id=m.GroupId,name=m.Group.Name,role=m.Role.ToString()},message=m?.Status==GroupMemberStatus.Pending?"Solicitação enviada ao gestor do grupo.":null};
+async Task<GroupMembership> JoinOrCreateGroup(string uid,string name){var n=Normalize(name);var g=await _db.Groups.Include(x=>x.Memberships).FirstOrDefaultAsync(x=>x.NormalizedName==n);if(g is null){g=new CashFlowGroup{Id=Guid.NewGuid(),Name=name.Trim(),NormalizedName=n,OwnerUserId=uid};var owner=new GroupMembership{Group=g,UserId=uid,Role=GroupMemberRole.Owner,Status=GroupMemberStatus.Active};_db.AddRange(g,owner);await _db.SaveChangesAsync();return owner;}if(g.Id==LegacyGroupId)return await MoveLegacyNamedGroupToFreshTenant(g,uid);var p=new GroupMembership{GroupId=g.Id,Group=g,UserId=uid,Role=GroupMemberRole.Member,Status=GroupMemberStatus.Pending};_db.Add(p);await _db.SaveChangesAsync();return p;}
+async Task<GroupMembership> MoveLegacyNamedGroupToFreshTenant(CashFlowGroup legacy,string uid){var oldName=legacy.Name;var oldNormalized=legacy.NormalizedName;legacy.Name="Dados anteriores";legacy.NormalizedName=$"__LEGACY_{LegacyGroupId:N}";await _db.SaveChangesAsync();var fresh=new CashFlowGroup{Id=Guid.NewGuid(),Name=oldName,NormalizedName=oldNormalized,OwnerUserId=legacy.OwnerUserId};_db.Groups.Add(fresh);await _db.SaveChangesAsync();var memberships=await _db.GroupMemberships.Where(x=>x.GroupId==LegacyGroupId).ToListAsync();foreach(var m in memberships)m.GroupId=fresh.Id;await _db.SaveChangesAsync();var existing=await _db.GroupMemberships.Include(x=>x.Group).FirstOrDefaultAsync(x=>x.UserId==uid&&x.GroupId==fresh.Id&&x.Status!=GroupMemberStatus.Rejected);if(existing is not null)return existing;var pending=new GroupMembership{GroupId=fresh.Id,UserId=uid,Role=GroupMemberRole.Member,Status=GroupMemberStatus.Pending};_db.Add(pending);await _db.SaveChangesAsync();return await _db.GroupMemberships.Include(x=>x.Group).FirstAsync(x=>x.Id==pending.Id);}
+string Token(IdentityUser u,GroupMembership? m){var c=new List<Claim>{new(ClaimTypes.NameIdentifier,u.Id),new(ClaimTypes.Name,u.UserName!),new(ClaimTypes.Email,u.Email??"")};foreach(var role in DefaultFunctionalRoles)c.Add(new(ClaimTypes.Role,role));if(m is not null){c.Add(new("group_id",m.GroupId.ToString()));c.Add(new("group_role",m.Role.ToString()));}var k=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));var t=new JwtSecurityToken(_config["Jwt:Issuer"],_config["Jwt:Audience"],c,expires:DateTime.UtcNow.AddHours(m is null?1:8),signingCredentials:new SigningCredentials(k,SecurityAlgorithms.HmacSha256));return new JwtSecurityTokenHandler().WriteToken(t);}async Task<IdentityUser?> CurrentUser()=>await _users.GetUserAsync(User);async Task<GroupMembership?> CurrentMembership(){var uid=User.FindFirstValue(ClaimTypes.NameIdentifier);return uid is null?null:await _db.GroupMemberships.FirstOrDefaultAsync(x=>x.UserId==uid);}static string Normalize(string n)=>n.Trim().ToUpperInvariant();}
