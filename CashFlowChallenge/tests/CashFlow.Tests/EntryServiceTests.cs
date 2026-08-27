@@ -15,14 +15,20 @@ public class EntryServiceTests
     private readonly Mock<IEntryRepository> _entryRepositoryMock = new();
     private readonly Mock<IOutboxMessageRepository> _outboxRepositoryMock = new();
     private readonly Mock<INotificator> _notificatorMock = new();
+    private readonly Mock<IAccountRepository> _accountRepositoryMock = new();
+    private readonly Mock<ICategoryRepository> _categoryRepositoryMock = new();
+
+    private EntryService CreateService() => new(
+        _entryRepositoryMock.Object,
+        _outboxRepositoryMock.Object,
+        _notificatorMock.Object,
+        _accountRepositoryMock.Object,
+        _categoryRepositoryMock.Object);
 
     [Fact]
     public async Task CreateAsync_Should_Return_Null_When_Amount_Is_Zero()
     {
-        var service = new EntryService(
-            _entryRepositoryMock.Object,
-            _outboxRepositoryMock.Object,
-            _notificatorMock.Object);
+        var service = CreateService();
 
         var result = await service.CreateAsync(0, EntryType.Credit, "Teste", DateTime.UtcNow);
 
@@ -41,10 +47,7 @@ public class EntryServiceTests
     [Fact]
     public async Task CreateAsync_Should_Create_Entry_When_Data_Is_Valid()
     {
-        var service = new EntryService(
-            _entryRepositoryMock.Object,
-            _outboxRepositoryMock.Object,
-            _notificatorMock.Object);
+        var service = CreateService();
 
         var result = await service.CreateAsync(100, EntryType.Credit, "Entrada teste", DateTime.Now);
 
@@ -69,10 +72,7 @@ public class EntryServiceTests
             .Callback<OutboxMessage>(message => capturedOutbox = message)
             .Returns(Task.CompletedTask);
 
-        var service = new EntryService(
-            _entryRepositoryMock.Object,
-            _outboxRepositoryMock.Object,
-            _notificatorMock.Object);
+        var service = CreateService();
 
         await service.CreateAsync(50, EntryType.Debit, "Saída teste", DateTime.UtcNow);
 
@@ -98,10 +98,7 @@ public class EntryServiceTests
             .Setup(x => x.GetAllAsync())
             .ReturnsAsync(entries);
 
-        var service = new EntryService(
-            _entryRepositoryMock.Object,
-            _outboxRepositoryMock.Object,
-            _notificatorMock.Object);
+        var service = CreateService();
 
         var result = await service.GetAllAsync();
 
@@ -115,10 +112,7 @@ public class EntryServiceTests
             .Setup(x => x.GetAllAsync())
             .ThrowsAsync(new Exception("database error"));
 
-        var service = new EntryService(
-            _entryRepositoryMock.Object,
-            _outboxRepositoryMock.Object,
-            _notificatorMock.Object);
+        var service = CreateService();
 
         var result = await service.GetAllAsync();
 
