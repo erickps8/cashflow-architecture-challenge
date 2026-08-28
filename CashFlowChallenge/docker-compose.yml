@@ -26,6 +26,13 @@ services:
     environment: ["ASPNETCORE_ENVIRONMENT=Development"]
     ports: ["5001:8080"]
     depends_on: {postgres: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
+  assistant-api:
+    build: {context: ., dockerfile: src/Assistant/CashFlow.Assistant.Api/Dockerfile}
+    container_name: cashflow-assistant-api
+    environment: ["ASPNETCORE_ENVIRONMENT=Development"]
+    ports: ["5004:8080"]
+    depends_on: [launch-api]
+    restart: unless-stopped
   consolidation-api:
     build: {context: ., dockerfile: src/Consolidation/1-Application/CashFlow.Consolidation.Api/Dockerfile}
     container_name: cashflow-consolidation-api
