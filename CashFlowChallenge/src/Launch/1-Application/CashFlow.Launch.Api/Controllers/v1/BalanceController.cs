@@ -28,4 +28,11 @@ public class BalanceController : ControllerBase
         if (startMonth is < 1 or > 12 || months is < 1 or > 60) return BadRequest();
         return Ok(await _service.GetProjectionAsync(startYear, startMonth, months, initialBalance));
     }
+
+    [HttpGet("planned-projection")]
+    public async Task<IActionResult> GetPlannedProjection([FromQuery] int startYear, [FromQuery] int startMonth, [FromQuery] int months = 12, [FromQuery] decimal initialBalance = 0)
+    {
+        if (startMonth is < 1 or > 12 || months is < 1 or > 60) return BadRequest();
+        return Ok(await _service.GetPlannedProjectionAsync(startYear, startMonth, months, initialBalance));
+    }
 }

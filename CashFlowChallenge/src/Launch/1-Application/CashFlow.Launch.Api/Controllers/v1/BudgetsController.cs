@@ -13,7 +13,6 @@ namespace CashFlow.Launch.Api.Controllers;
 public class BudgetsController : ControllerBase
 {
     private readonly IMonthlyBudgetService _service;
-
     public BudgetsController(IMonthlyBudgetService service) => _service = service;
 
     [HttpPost]
@@ -29,4 +28,12 @@ public class BudgetsController : ControllerBase
         var result = await _service.GetSummaryAsync(year, month);
         return result is null ? BadRequest() : Ok(result);
     }
+
+    [HttpDelete("{year:int}/categories/{categoryId:guid}")]
+    public async Task<IActionResult> RemoveCategory(int year, Guid categoryId) =>
+        await _service.RemoveCategoryFromYearAsync(year, categoryId) ? NoContent() : BadRequest();
+
+    [HttpDelete("{year:int}")]
+    public async Task<IActionResult> ClearYear(int year) =>
+        await _service.ClearYearAsync(year) ? NoContent() : BadRequest();
 }
