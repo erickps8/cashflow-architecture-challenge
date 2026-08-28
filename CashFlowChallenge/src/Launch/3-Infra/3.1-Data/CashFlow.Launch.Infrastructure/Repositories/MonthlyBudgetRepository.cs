@@ -26,4 +26,18 @@ public class MonthlyBudgetRepository : BaseRepository<MonthlyBudget>, IMonthlyBu
             .Where(x => x.Year == year && x.Month == month)
             .ToListAsync();
     }
+
+    public Task<int> RemoveByYearAndCategoryAsync(int year, Guid categoryId)
+    {
+        return _context.MonthlyBudgets
+            .Where(x => x.Year == year && x.CategoryId == categoryId)
+            .ExecuteDeleteAsync();
+    }
+
+    public Task<int> RemoveByYearAsync(int year)
+    {
+        return _context.MonthlyBudgets
+            .Where(x => x.Year == year)
+            .ExecuteDeleteAsync();
+    }
 }
