@@ -47,31 +47,14 @@ public class MonthlyBudgetService : IMonthlyBudgetService
     public async Task<bool> RemoveCategoryFromYearAsync(int year, Guid categoryId)
     {
         if (year < 2000 || categoryId == Guid.Empty) return false;
-        var found = false;
-        for (var month = 1; month <= 12; month++)
-        {
-            var budget = await _budgetRepository.GetByMonthAndCategoryAsync(year, month, categoryId);
-            if (budget is null) continue;
-            _budgetRepository.Remove(budget);
-            found = true;
-        }
-        if (found) await _budgetRepository.SaveChangesAsync();
+        await _budgetRepository.RemoveByYearAndCategoryAsync(year, categoryId);
         return true;
     }
 
     public async Task<bool> ClearYearAsync(int year)
     {
         if (year < 2000) return false;
-        var found = false;
-        for (var month = 1; month <= 12; month++)
-        {
-            foreach (var budget in await _budgetRepository.GetByMonthAsync(year, month))
-            {
-                _budgetRepository.Remove(budget);
-                found = true;
-            }
-        }
-        if (found) await _budgetRepository.SaveChangesAsync();
+        await _budgetRepository.RemoveByYearAsync(year);
         return true;
     }
 
