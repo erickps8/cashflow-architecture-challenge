@@ -20,29 +20,18 @@ public class MonthlyBalanceService : IMonthlyBalanceService
         _budgetService = budgetService;
     }
 
-    public async Task<MonthlyBalanceSummary> GetMonthAsync(int year, int month, decimal openingBalance = 0)
-    {
-        return await BuildMonthAsync(year, month, openingBalance, includeBudget: false);
-    }
+    public Task<MonthlyBalanceSummary> GetMonthAsync(int year, int month, decimal openingBalance = 0) => BuildMonthAsync(year, month, openingBalance, false);
 
-    public async Task<BalanceProjectionSummary> GetProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0)
-    {
-        return await BuildProjectionAsync(startYear, startMonth, months, initialBalance, includeBudget: false);
-    }
+    public Task<BalanceProjectionSummary> GetProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0) => BuildProjectionAsync(startYear, startMonth, months, initialBalance, false);
 
-    public async Task<BalanceProjectionSummary> GetPlannedProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0)
-    {
-        return await BuildProjectionAsync(startYear, startMonth, months, initialBalance, includeBudget: true);
-    }
+    public Task<BalanceProjectionSummary> GetPlannedProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0) => BuildProjectionAsync(startYear, startMonth, months, initialBalance, true);
 
     private async Task<BalanceProjectionSummary> BuildProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance, bool includeBudget)
     {
         if (months < 1 || months > 60) return new BalanceProjectionSummary { InitialBalance = initialBalance, FinalBalance = initialBalance };
-
         var result = new BalanceProjectionSummary { InitialBalance = initialBalance };
         var current = new DateTime(startYear, startMonth, 1, 0, 0, 0, DateTimeKind.Utc);
         var balance = initialBalance;
-
         for (var i = 0; i < months; i++)
         {
             var month = await BuildMonthAsync(current.Year, current.Month, balance, includeBudget);
@@ -51,7 +40,6 @@ public class MonthlyBalanceService : IMonthlyBalanceService
             if (month.IsNegative) result.HasNegativeMonth = true;
             current = current.AddMonths(1);
         }
-
         result.FinalBalance = balance;
         return result;
     }
@@ -63,23 +51,18 @@ public class MonthlyBalanceService : IMonthlyBalanceService
         var entries = await _entryRepository.GetByPeriodAsync(start, end);
         var installments = await _installmentRepository.GetByReferenceAsync(year, month);
         var recurringEntries = await _recurringEntryRepository.GetAllAsync();
-
-        decimal recurringIncome = 0;
-        decimal recurringExpense = 0;
-
+        decimal recurringIncome = 0, recurringExpense = 0;
         foreach (var recurring in recurringEntries.Where(x => x.IsActive))
         {
             var occurrence = recurring.NextOccurrenceAt;
             while (occurrence < end)
             {
                 if (recurring.EndAt.HasValue && occurrence > recurring.EndAt.Value) break;
-
                 if (occurrence >= start)
                 {
                     if (recurring.Type == EntryType.Credit) recurringIncome += recurring.Amount;
                     else if (recurring.Type == EntryType.Debit) recurringExpense += recurring.Amount;
                 }
-
                 occurrence = recurring.Frequency switch
                 {
                     RecurrenceFrequency.Weekly => occurrence.AddDays(7),
@@ -92,8 +75,8 @@ public class MonthlyBalanceService : IMonthlyBalanceService
         var plannedExpense = 0m;
         if (includeBudget)
         {
-            var budget = await _budgetService.GetMonthAsync(year, month);
-            plannedExpense = Math.Max(0, budget.PlannedAmount - budget.ActualAmount);
+            var budget = await _budgetService.GetSummaryAsync(year, month);
+            if (budget is not null) plannedExpense = Math.Max(0, budget.PlannedAmount - budget.ActualAmount);
         }
 
         return new MonthlyBalanceSummary
