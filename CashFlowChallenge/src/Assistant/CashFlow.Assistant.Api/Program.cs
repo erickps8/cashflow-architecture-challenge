@@ -1,3 +1,4 @@
+using CashFlow.Assistant.Api;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ModelContextProtocol.Server;
