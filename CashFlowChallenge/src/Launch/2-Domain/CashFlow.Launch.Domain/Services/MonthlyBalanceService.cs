@@ -10,15 +10,53 @@ public class MonthlyBalanceService : IMonthlyBalanceService
     private readonly IEntryRepository _entryRepository;
     private readonly ICreditCardInstallmentRepository _installmentRepository;
     private readonly IRecurringEntryRepository _recurringEntryRepository;
+    private readonly IMonthlyBudgetService _budgetService;
 
-    public MonthlyBalanceService(IEntryRepository entryRepository, ICreditCardInstallmentRepository installmentRepository, IRecurringEntryRepository recurringEntryRepository)
+    public MonthlyBalanceService(IEntryRepository entryRepository, ICreditCardInstallmentRepository installmentRepository, IRecurringEntryRepository recurringEntryRepository, IMonthlyBudgetService budgetService)
     {
         _entryRepository = entryRepository;
         _installmentRepository = installmentRepository;
         _recurringEntryRepository = recurringEntryRepository;
+        _budgetService = budgetService;
     }
 
     public async Task<MonthlyBalanceSummary> GetMonthAsync(int year, int month, decimal openingBalance = 0)
+    {
+        return await BuildMonthAsync(year, month, openingBalance, includeBudget: false);
+    }
+
+    public async Task<BalanceProjectionSummary> GetProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0)
+    {
+        return await BuildProjectionAsync(startYear, startMonth, months, initialBalance, includeBudget: false);
+    }
+
+    public async Task<BalanceProjectionSummary> GetPlannedProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0)
+    {
+        return await BuildProjectionAsync(startYear, startMonth, months, initialBalance, includeBudget: true);
+    }
+
+    private async Task<BalanceProjectionSummary> BuildProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance, bool includeBudget)
+    {
+        if (months < 1 || months > 60) return new BalanceProjectionSummary { InitialBalance = initialBalance, FinalBalance = initialBalance };
+
+        var result = new BalanceProjectionSummary { InitialBalance = initialBalance };
+        var current = new DateTime(startYear, startMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+        var balance = initialBalance;
+
+        for (var i = 0; i < months; i++)
+        {
+            var month = await BuildMonthAsync(current.Year, current.Month, balance, includeBudget);
+            result.Months.Add(month);
+            balance = month.ClosingBalance;
+            if (month.IsNegative) result.HasNegativeMonth = true;
+            current = current.AddMonths(1);
+        }
+
+        result.FinalBalance = balance;
+        return result;
+    }
+
+    private async Task<MonthlyBalanceSummary> BuildMonthAsync(int year, int month, decimal openingBalance, bool includeBudget)
     {
         var start = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
         var end = start.AddMonths(1);
@@ -51,6 +89,13 @@ public class MonthlyBalanceService : IMonthlyBalanceService
             }
         }
 
+        var plannedExpense = 0m;
+        if (includeBudget)
+        {
+            var budget = await _budgetService.GetMonthAsync(year, month);
+            plannedExpense = Math.Max(0, budget.PlannedAmount - budget.ActualAmount);
+        }
+
         return new MonthlyBalanceSummary
         {
             Year = year,
@@ -60,28 +105,8 @@ public class MonthlyBalanceService : IMonthlyBalanceService
             RecurringIncomeAmount = recurringIncome,
             DirectExpenseAmount = entries.Where(x => x.Type == EntryType.Debit).Sum(x => x.Amount),
             RecurringExpenseAmount = recurringExpense,
-            CreditCardAmount = installments.Sum(x => x.Amount)
+            CreditCardAmount = installments.Sum(x => x.Amount),
+            PlannedExpenseAmount = plannedExpense
         };
-    }
-
-    public async Task<BalanceProjectionSummary> GetProjectionAsync(int startYear, int startMonth, int months, decimal initialBalance = 0)
-    {
-        if (months < 1 || months > 60) return new BalanceProjectionSummary { InitialBalance = initialBalance, FinalBalance = initialBalance };
-
-        var result = new BalanceProjectionSummary { InitialBalance = initialBalance };
-        var current = new DateTime(startYear, startMonth, 1, 0, 0, 0, DateTimeKind.Utc);
-        var balance = initialBalance;
-
-        for (var i = 0; i < months; i++)
-        {
-            var month = await GetMonthAsync(current.Year, current.Month, balance);
-            result.Months.Add(month);
-            balance = month.ClosingBalance;
-            if (month.IsNegative) result.HasNegativeMonth = true;
-            current = current.AddMonths(1);
-        }
-
-        result.FinalBalance = balance;
-        return result;
     }
 }
