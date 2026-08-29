@@ -1,0 +1,41 @@
+name: Deploy Playground
+
+on:
+  push:
+    branches:
+      - feature/android-capacitor
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or ref to deploy
+        required: false
+        default: feature/android-capacitor
+
+concurrency:
+  group: cashflow-playground
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: playground
+
+    steps:
+      - name: Deploy to plania.cloud
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/cashflow/CashFlowChallenge
+            BRANCH="${{ github.event.inputs.ref || github.ref_name }}"
+            echo "Deploying $BRANCH"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            docker compose up -d --build
+            docker compose ps
