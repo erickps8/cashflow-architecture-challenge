@@ -3,11 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'cloud.plania.cashflow',
   appName: 'CashFlow',
-  webDir: 'dist',
-  server: {
-    url: 'https://plania.cloud',
-    cleartext: false
-  }
+  webDir: 'dist'
 };
 
 export default config;
