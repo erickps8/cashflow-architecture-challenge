@@ -1,9 +1,6 @@
 name: Deploy Playground
 
 on:
-  push:
-    branches:
-      - feature/android-capacitor
   workflow_dispatch:
     inputs:
       ref:
@@ -21,18 +18,33 @@ jobs:
     environment: playground
 
     steps:
+      - name: Check deployment configuration
+        id: config
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_USER" ] && [ -n "$VPS_SSH_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Playground deploy skipped: VPS_HOST, VPS_USER and VPS_SSH_KEY must be configured in the playground environment."
+          fi
+
       - name: Deploy to plania.cloud
+        if: steps.config.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          script_stop: true
+          command_timeout: 15m
           script: |
             set -e
             cd /opt/cashflow/CashFlowChallenge
-            BRANCH="${{ github.event.inputs.ref || github.ref_name }}"
+            BRANCH="${{ inputs.ref }}"
             echo "Deploying $BRANCH"
             git fetch origin "$BRANCH"
             git checkout "$BRANCH"
