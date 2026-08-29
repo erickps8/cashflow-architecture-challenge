@@ -8,8 +8,11 @@ export type Invoice={creditCardId:string;creditCardName:string;year:number;month
 export type Budget={year:number;month:number;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean;categories:{categoryId:string;categoryName:string;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean}[]}
 export type Recurring={id:string;amount:number;type:number;description:string;frequency:number;startAt:string;endAt?:string;nextOccurrenceAt:string;isActive:boolean;accountId?:string;categoryId?:string}
 const tokenKey='cashflow_token'
+const isNative=typeof window!=='undefined'&&window.location.protocol==='capacitor:'
+const apiBase=isNative?'https://plania.cloud':''
+const endpoint=(url:string)=>`${apiBase}${url}`
 export const session={get token(){return localStorage.getItem(tokenKey)},set(t:string){localStorage.setItem(tokenKey,t)},clear(){localStorage.removeItem(tokenKey)}}
-async function request<T>(url:string,init:RequestInit={}){const headers=new Headers(init.headers);headers.set('Content-Type','application/json');if(session.token)headers.set('Authorization',`Bearer ${session.token}`);const r=await fetch(url,{...init,headers});if(r.status===401){session.clear();throw new Error('Sessão expirada. Entre novamente.')}if(!r.ok)throw new Error((await r.text())||`Erro ${r.status}`);if(r.status===204)return undefined as T;const text=await r.text();return(text?JSON.parse(text):undefined)as T}
+async function request<T>(url:string,init:RequestInit={}){const headers=new Headers(init.headers);headers.set('Content-Type','application/json');if(session.token)headers.set('Authorization',`Bearer ${session.token}`);const r=await fetch(endpoint(url),{...init,headers});if(r.status===401){session.clear();throw new Error('Sessão expirada. Entre novamente.')}if(!r.ok)throw new Error((await r.text())||`Erro ${r.status}`);if(r.status===204)return undefined as T;const text=await r.text();return(text?JSON.parse(text):undefined)as T}
 export async function login(username:string,password:string){const d=await request<{token:string;username:string;roles:string[]}>('/auth/login',{method:'POST',body:JSON.stringify({username,password})});session.set(d.token);return d}
 export const getMonthly=(y:number,m:number,o:number)=>request<MonthlyBalance>(`/api/v1/balance/monthly/${y}/${m}?openingBalance=${o}`)
 export const getProjection=(y:number,m:number,n:number,o:number)=>request<Projection>(`/api/v1/balance/projection?startYear=${y}&startMonth=${m}&months=${n}&initialBalance=${o}`)
