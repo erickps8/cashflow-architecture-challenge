@@ -8,7 +8,7 @@ export type Invoice={creditCardId:string;creditCardName:string;year:number;month
 export type Budget={year:number;month:number;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean;categories:{categoryId:string;categoryName:string;plannedAmount:number;actualAmount:number;remainingAmount:number;isOverBudget:boolean}[]}
 export type Recurring={id:string;amount:number;type:number;description:string;frequency:number;startAt:string;endAt?:string;nextOccurrenceAt:string;isActive:boolean;accountId?:string;categoryId?:string}
 const tokenKey='cashflow_token'
-const isNative=typeof window!=='undefined'&&window.location.protocol==='capacitor:'
+const isNative=typeof window!=='undefined'&&(window.location.protocol==='capacitor:'||window.location.hostname==='localhost')
 const apiBase=isNative?'https://plania.cloud':''
 const endpoint=(url:string)=>`${apiBase}${url}`
 export const session={get token(){return localStorage.getItem(tokenKey)},set(t:string){localStorage.setItem(tokenKey,t)},clear(){localStorage.removeItem(tokenKey)}}
