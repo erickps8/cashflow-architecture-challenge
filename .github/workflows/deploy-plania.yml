@@ -25,9 +25,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           cd /opt/cashflow
-          git fetch --prune origin "$DEPLOY_BRANCH"
-          git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
-          git reset --hard "origin/$DEPLOY_BRANCH"
+          git fetch --prune https://github.com/erickps8/cashflow-architecture-challenge.git "$DEPLOY_BRANCH"
+          git checkout -B "$DEPLOY_BRANCH" FETCH_HEAD
+          git reset --hard FETCH_HEAD
 
       - name: Validate Docker Compose
         shell: bash
