@@ -7,4 +7,6 @@ public interface IMonthlyBudgetService
 {
     Task<MonthlyBudget?> SetAsync(int year, int month, Guid categoryId, decimal plannedAmount);
     Task<MonthlyBudgetSummary?> GetSummaryAsync(int year, int month);
+    Task<bool> RemoveCategoryFromYearAsync(int year, Guid categoryId);
+    Task<bool> ClearYearAsync(int year);
 }

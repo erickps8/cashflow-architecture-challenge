@@ -13,29 +13,20 @@ namespace CashFlow.Launch.Api.Controllers;
 public class EntriesController : MainController
 {
     private readonly IEntryService _service;
+    public EntriesController(IEntryService service, INotificator notificator):base(notificator)=>_service=service;
 
-    public EntriesController(IEntryService service, INotificator notificator) : base(notificator)
-    {
-        _service = service;
-    }
+    [Authorize][HttpPost]
+    public async Task<IActionResult> Create(CreateEntryRequest request)=>CustomResponse(await _service.CreateAsync(request.Amount,request.Type,request.Description,request.OccurredAt,request.AccountId,request.CategoryId,request.IsRecurring));
 
-    [Authorize(Roles = "entries-create")]
-    [HttpPost]
-    public async Task<IActionResult> Create(CreateEntryRequest request)
-    {
-        var result = await _service.CreateAsync(request.Amount, request.Type, request.Description, request.OccurredAt, request.AccountId, request.CategoryId, request.IsRecurring);
-        return CustomResponse(result);
-    }
+    [Authorize][HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id,CreateEntryRequest request)=>CustomResponse(await _service.UpdateAsync(id,request.Amount,request.Type,request.Description,request.OccurredAt,request.AccountId,request.CategoryId,request.IsRecurring));
 
-    [Authorize(Roles = "entries")]
-    [HttpGet]
-    public async Task<IActionResult> GetAll() => CustomResponse(await _service.GetAllAsync());
+    [Authorize][HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)=>CustomResponse(await _service.DeleteAsync(id));
 
-    [Authorize(Roles = "entries")]
-    [HttpGet("monthly/{year:int}/{month:int}")]
-    public async Task<IActionResult> GetByMonth(int year, int month)
-    {
-        if (month < 1 || month > 12) return BadRequest("Month must be between 1 and 12.");
-        return CustomResponse(await _service.GetByMonthAsync(year, month));
-    }
+    [Authorize][HttpGet]
+    public async Task<IActionResult> GetAll()=>CustomResponse(await _service.GetAllAsync());
+
+    [Authorize][HttpGet("monthly/{year:int}/{month:int}")]
+    public async Task<IActionResult> GetByMonth(int year,int month){if(month<1||month>12)return BadRequest("Month must be between 1 and 12.");return CustomResponse(await _service.GetByMonthAsync(year,month));}
 }
