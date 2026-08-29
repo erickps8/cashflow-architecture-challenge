@@ -1,0 +1,91 @@
+name: Deploy Plania
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plania-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: [self-hosted, linux, x64, cashflow-production]
+    timeout-minutes: 30
+
+    steps:
+      - name: Update trusted production checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd /opt/cashflow
+          git fetch --prune origin develop
+          git checkout develop
+          git reset --hard origin/develop
+
+      - name: Validate Docker Compose
+        shell: bash
+        working-directory: /opt/cashflow/CashFlowChallenge
+        run: |
+          set -Eeuo pipefail
+          docker compose config --quiet
+
+      - name: Build images
+        shell: bash
+        working-directory: /opt/cashflow/CashFlowChallenge
+        run: |
+          set -Eeuo pipefail
+          docker compose build
+
+      - name: Deploy without removing volumes
+        shell: bash
+        working-directory: /opt/cashflow/CashFlowChallenge
+        run: |
+          set -Eeuo pipefail
+          docker compose up -d --remove-orphans
+
+      - name: Local health check
+        shell: bash
+        working-directory: /opt/cashflow/CashFlowChallenge
+        run: |
+          set -Eeuo pipefail
+          for attempt in {1..30}; do
+            if docker compose ps --status running --services | grep -qx 'web' \
+              && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8080/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Local health check failed.' >&2
+          docker compose ps >&2
+          docker compose logs --tail=100 web launch-api auth-api consolidation-api worker >&2 || true
+          exit 1
+
+      - name: Public HTTPS health check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for attempt in {1..15}; do
+            if curl --fail --silent --show-error --location --max-time 10 https://plania.cloud/ >/dev/null; then
+              echo 'Plania production is healthy.'
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Public HTTPS health check failed.' >&2
+          cd /opt/cashflow/CashFlowChallenge
+          docker compose ps >&2
+          docker compose logs --tail=100 web launch-api auth-api consolidation-api worker >&2 || true
+          exit 1
+
+      - name: Deployment status
+        if: always()
+        shell: bash
+        working-directory: /opt/cashflow/CashFlowChallenge
+        run: docker compose ps
