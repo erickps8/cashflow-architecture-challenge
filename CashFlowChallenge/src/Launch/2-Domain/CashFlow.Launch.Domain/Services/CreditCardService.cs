@@ -1,3 +1,311 @@
-using CashFlow.Launch.Domain.Entities;using CashFlow.Launch.Domain.Enums;using CashFlow.Launch.Domain.Interfaces;using CashFlow.Launch.Domain.Interfaces.Services;using CashFlow.Launch.Domain.Models;
+using CashFlow.Launch.Domain.Entities;
+using CashFlow.Launch.Domain.Enums;
+using CashFlow.Launch.Domain.Interfaces;
+using CashFlow.Launch.Domain.Interfaces.Services;
+using CashFlow.Launch.Domain.Models;
+
 namespace CashFlow.Launch.Domain.Services;
-public class CreditCardService:ICreditCardService{private readonly ICreditCardRepository _cardRepository;private readonly ICreditCardPurchaseRepository _purchaseRepository;private readonly ICreditCardInstallmentRepository _installmentRepository;private readonly ICategoryRepository _categoryRepository;public CreditCardService(ICreditCardRepository c,ICreditCardPurchaseRepository p,ICreditCardInstallmentRepository i,ICategoryRepository cat){_cardRepository=c;_purchaseRepository=p;_installmentRepository=i;_categoryRepository=cat;}private static bool Valid(string n,decimal l,int c,int d)=>!string.IsNullOrWhiteSpace(n)&&l>=0&&c is>=1 and<=28&&d is>=1 and<=28;public async Task<CreditCard?>CreateCardAsync(string n,decimal l,int c,int d){if(!Valid(n,l,c,d))return null;var x=new CreditCard{Name=n.Trim(),Limit=l,ClosingDay=c,DueDay=d};await _cardRepository.AddAsync(x);await _cardRepository.SaveChangesAsync();return x;}public async Task<CreditCard?>UpdateCardAsync(Guid id,string n,decimal l,int c,int d){var x=await _cardRepository.GetByIdAsync(id);if(x is null||!Valid(n,l,c,d))return null;x.Name=n.Trim();x.Limit=l;x.ClosingDay=c;x.DueDay=d;_cardRepository.Update(x);await _cardRepository.SaveChangesAsync();return x;}public async Task<bool>DeleteCardAsync(Guid id){var x=await _cardRepository.GetByIdAsync(id);if(x is null)return false;x.IsActive=false;_cardRepository.Update(x);await _cardRepository.SaveChangesAsync();return true;}public Task<List<CreditCard>>GetCardsAsync()=>_cardRepository.GetAllAsync();public async Task<CreditCardPurchase?>CreatePurchaseAsync(Guid cardId,Guid? catId,string desc,decimal total,int count,DateTime date){if(!await PurchaseValid(cardId,catId,desc,total,count))return null;var card=(await _cardRepository.GetByIdAsync(cardId))!;date=Utc(date);var p=new CreditCardPurchase{CreditCardId=cardId,CategoryId=catId,Description=desc.Trim(),TotalAmount=total,InstallmentsCount=count,PurchaseDate=date};await _purchaseRepository.AddAsync(p);await AddInstallments(p,card);await _purchaseRepository.SaveChangesAsync();return p;}public async Task<CreditCardPurchase?>UpdatePurchaseAsync(Guid id,Guid cardId,Guid? catId,string desc,decimal total,int count,DateTime date){var p=await _purchaseRepository.GetByIdAsync(id);if(p is null||!await PurchaseValid(cardId,catId,desc,total,count))return null;var all=await _installmentRepository.GetAllAsync();var old=all.Where(x=>x.CreditCardPurchaseId==id).ToList();if(old.Any(x=>x.IsPaid))return null;foreach(var i in old)_installmentRepository.Remove(i);p.CreditCardId=cardId;p.CategoryId=catId;p.Description=desc.Trim();p.TotalAmount=total;p.InstallmentsCount=count;p.PurchaseDate=Utc(date);_purchaseRepository.Update(p);await AddInstallments(p,(await _cardRepository.GetByIdAsync(cardId))!);await _purchaseRepository.SaveChangesAsync();return p;}public async Task<bool>DeletePurchaseAsync(Guid id){var p=await _purchaseRepository.GetByIdAsync(id);if(p is null)return false;var all=await _installmentRepository.GetAllAsync();var items=all.Where(x=>x.CreditCardPurchaseId==id).ToList();if(items.Any(x=>x.IsPaid))return false;foreach(var i in items)_installmentRepository.Remove(i);_purchaseRepository.Remove(p);await _purchaseRepository.SaveChangesAsync();return true;}public async Task<CreditCardInvoiceSummary?>GetInvoiceAsync(Guid id,int y,int m){var card=await _cardRepository.GetByIdAsync(id);if(card is null||m is<1 or>12)return null;var items=await _installmentRepository.GetByCardAndReferenceAsync(id,y,m);var reference=new DateTime(y,m,1,0,0,0,DateTimeKind.Utc);return new CreditCardInvoiceSummary{CreditCardId=card.Id,CreditCardName=card.Name,Year=y,Month=m,DueDate=Due(reference,card.ClosingDay,card.DueDay),TotalAmount=items.Sum(x=>x.Amount),PaidAmount=items.Where(x=>x.IsPaid).Sum(x=>x.Amount),Items=items.Select(x=>new CreditCardInvoiceItem{InstallmentId=x.Id,PurchaseId=x.CreditCardPurchaseId,Description=x.CreditCardPurchase?.Description??string.Empty,PurchaseTotalAmount=x.CreditCardPurchase?.TotalAmount??x.Amount,PurchaseDate=x.CreditCardPurchase?.PurchaseDate??reference,InstallmentNumber=x.Number,InstallmentsCount=x.CreditCardPurchase?.InstallmentsCount??0,Amount=x.Amount,IsPaid=x.IsPaid,CategoryId=x.CreditCardPurchase?.CategoryId}).ToList()};}public async Task<bool>MarkInstallmentPaidAsync(Guid id){var x=await _installmentRepository.GetByIdAsync(id);if(x is null)return false;x.IsPaid=true;_installmentRepository.Update(x);await _installmentRepository.SaveChangesAsync();return true;}private async Task<bool>PurchaseValid(Guid cardId,Guid? catId,string desc,decimal total,int count){var card=await _cardRepository.GetByIdAsync(cardId);if(card is null||!card.IsActive||string.IsNullOrWhiteSpace(desc)||total<=0||count<1||count>120)return false;if(catId.HasValue){var cat=await _categoryRepository.GetByIdAsync(catId.Value);if(cat is null||cat.Type!=EntryType.Debit)return false;}return true;}private async Task AddInstallments(CreditCardPurchase p,CreditCard card){var baseAmount=Math.Floor((p.TotalAmount/p.InstallmentsCount)*100m)/100m;var first=First(p.PurchaseDate,card.ClosingDay);for(var n=1;n<=p.InstallmentsCount;n++){var reference=first.AddMonths(n-1);await _installmentRepository.AddAsync(new CreditCardInstallment{CreditCardPurchaseId=p.Id,Number=n,Amount=n==p.InstallmentsCount?p.TotalAmount-baseAmount*(p.InstallmentsCount-1):baseAmount,ReferenceDate=reference,DueDate=Due(reference,card.ClosingDay,card.DueDay)});}}private static DateTime Utc(DateTime d)=>DateTime.SpecifyKind(d,DateTimeKind.Utc);private static DateTime First(DateTime d,int close){var m=new DateTime(d.Year,d.Month,1,0,0,0,DateTimeKind.Utc);return d.Day<=close?m:m.AddMonths(1);}private static DateTime Due(DateTime r,int close,int due){var m=due>close?r:r.AddMonths(1);return new DateTime(m.Year,m.Month,due,0,0,0,DateTimeKind.Utc);}}
+
+public sealed class CreditCardService : ICreditCardService
+{
+    private const int MinimumDay = 1;
+    private const int MaximumBillingDay = 28;
+    private const int MaximumInstallments = 120;
+
+    private readonly ICreditCardRepository _cardRepository;
+    private readonly ICreditCardPurchaseRepository _purchaseRepository;
+    private readonly ICreditCardInstallmentRepository _installmentRepository;
+    private readonly ICategoryRepository _categoryRepository;
+
+    public CreditCardService(
+        ICreditCardRepository cardRepository,
+        ICreditCardPurchaseRepository purchaseRepository,
+        ICreditCardInstallmentRepository installmentRepository,
+        ICategoryRepository categoryRepository)
+    {
+        _cardRepository = cardRepository;
+        _purchaseRepository = purchaseRepository;
+        _installmentRepository = installmentRepository;
+        _categoryRepository = categoryRepository;
+    }
+
+    public async Task<CreditCard?> CreateCardAsync(
+        string name,
+        decimal limit,
+        int closingDay,
+        int dueDay)
+    {
+        if (!IsCardValid(name, limit, closingDay, dueDay))
+            return null;
+
+        var card = new CreditCard
+        {
+            Name = name.Trim(),
+            Limit = limit,
+            ClosingDay = closingDay,
+            DueDay = dueDay
+        };
+
+        await _cardRepository.AddAsync(card);
+        await _cardRepository.SaveChangesAsync();
+        return card;
+    }
+
+    public async Task<CreditCard?> UpdateCardAsync(
+        Guid id,
+        string name,
+        decimal limit,
+        int closingDay,
+        int dueDay)
+    {
+        var card = await _cardRepository.GetByIdAsync(id);
+        if (card is null || !IsCardValid(name, limit, closingDay, dueDay))
+            return null;
+
+        card.Name = name.Trim();
+        card.Limit = limit;
+        card.ClosingDay = closingDay;
+        card.DueDay = dueDay;
+
+        _cardRepository.Update(card);
+        await _cardRepository.SaveChangesAsync();
+        return card;
+    }
+
+    public async Task<bool> DeleteCardAsync(Guid id)
+    {
+        var card = await _cardRepository.GetByIdAsync(id);
+        if (card is null)
+            return false;
+
+        card.IsActive = false;
+        _cardRepository.Update(card);
+        await _cardRepository.SaveChangesAsync();
+        return true;
+    }
+
+    public Task<List<CreditCard>> GetCardsAsync() => _cardRepository.GetAllAsync();
+
+    public async Task<CreditCardPurchase?> CreatePurchaseAsync(
+        Guid cardId,
+        Guid? categoryId,
+        string description,
+        decimal totalAmount,
+        int installmentsCount,
+        DateTime purchaseDate)
+    {
+        var card = await GetValidCardForPurchaseAsync(
+            cardId,
+            categoryId,
+            description,
+            totalAmount,
+            installmentsCount);
+
+        if (card is null)
+            return null;
+
+        var purchase = new CreditCardPurchase
+        {
+            CreditCardId = cardId,
+            CategoryId = categoryId,
+            Description = description.Trim(),
+            TotalAmount = totalAmount,
+            InstallmentsCount = installmentsCount,
+            PurchaseDate = ToUtc(purchaseDate)
+        };
+
+        await _purchaseRepository.AddAsync(purchase);
+        await AddInstallmentsAsync(purchase, card);
+        await _purchaseRepository.SaveChangesAsync();
+        return purchase;
+    }
+
+    public async Task<CreditCardPurchase?> UpdatePurchaseAsync(
+        Guid id,
+        Guid cardId,
+        Guid? categoryId,
+        string description,
+        decimal totalAmount,
+        int installmentsCount,
+        DateTime purchaseDate)
+    {
+        var purchase = await _purchaseRepository.GetByIdAsync(id);
+        if (purchase is null)
+            return null;
+
+        var card = await GetValidCardForPurchaseAsync(
+            cardId,
+            categoryId,
+            description,
+            totalAmount,
+            installmentsCount);
+
+        if (card is null)
+            return null;
+
+        var existingInstallments = await GetPurchaseInstallmentsAsync(id);
+        if (existingInstallments.Any(item => item.IsPaid))
+            return null;
+
+        foreach (var installment in existingInstallments)
+            _installmentRepository.Remove(installment);
+
+        purchase.CreditCardId = cardId;
+        purchase.CategoryId = categoryId;
+        purchase.Description = description.Trim();
+        purchase.TotalAmount = totalAmount;
+        purchase.InstallmentsCount = installmentsCount;
+        purchase.PurchaseDate = ToUtc(purchaseDate);
+
+        _purchaseRepository.Update(purchase);
+        await AddInstallmentsAsync(purchase, card);
+        await _purchaseRepository.SaveChangesAsync();
+        return purchase;
+    }
+
+    public async Task<bool> DeletePurchaseAsync(Guid id)
+    {
+        var purchase = await _purchaseRepository.GetByIdAsync(id);
+        if (purchase is null)
+            return false;
+
+        var installments = await GetPurchaseInstallmentsAsync(id);
+        if (installments.Any(item => item.IsPaid))
+            return false;
+
+        foreach (var installment in installments)
+            _installmentRepository.Remove(installment);
+
+        _purchaseRepository.Remove(purchase);
+        await _purchaseRepository.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<CreditCardInvoiceSummary?> GetInvoiceAsync(Guid id, int year, int month)
+    {
+        var card = await _cardRepository.GetByIdAsync(id);
+        if (card is null || month is < 1 or > 12)
+            return null;
+
+        var installments = await _installmentRepository.GetByCardAndReferenceAsync(id, year, month);
+        var reference = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        return new CreditCardInvoiceSummary
+        {
+            CreditCardId = card.Id,
+            CreditCardName = card.Name,
+            Year = year,
+            Month = month,
+            DueDate = CalculateDueDate(reference, card.ClosingDay, card.DueDay),
+            TotalAmount = installments.Sum(item => item.Amount),
+            PaidAmount = installments.Where(item => item.IsPaid).Sum(item => item.Amount),
+            Items = installments.Select(item => new CreditCardInvoiceItem
+            {
+                InstallmentId = item.Id,
+                PurchaseId = item.CreditCardPurchaseId,
+                Description = item.CreditCardPurchase?.Description ?? string.Empty,
+                PurchaseTotalAmount = item.CreditCardPurchase?.TotalAmount ?? item.Amount,
+                PurchaseDate = item.CreditCardPurchase?.PurchaseDate ?? reference,
+                InstallmentNumber = item.Number,
+                InstallmentsCount = item.CreditCardPurchase?.InstallmentsCount ?? 0,
+                Amount = item.Amount,
+                IsPaid = item.IsPaid,
+                CategoryId = item.CreditCardPurchase?.CategoryId
+            }).ToList()
+        };
+    }
+
+    public async Task<bool> MarkInstallmentPaidAsync(Guid id)
+    {
+        var installment = await _installmentRepository.GetByIdAsync(id);
+        if (installment is null)
+            return false;
+
+        installment.IsPaid = true;
+        _installmentRepository.Update(installment);
+        await _installmentRepository.SaveChangesAsync();
+        return true;
+    }
+
+    private static bool IsCardValid(string name, decimal limit, int closingDay, int dueDay) =>
+        !string.IsNullOrWhiteSpace(name)
+        && limit >= 0
+        && closingDay is >= MinimumDay and <= MaximumBillingDay
+        && dueDay is >= MinimumDay and <= MaximumBillingDay;
+
+    private async Task<CreditCard?> GetValidCardForPurchaseAsync(
+        Guid cardId,
+        Guid? categoryId,
+        string description,
+        decimal totalAmount,
+        int installmentsCount)
+    {
+        var card = await _cardRepository.GetByIdAsync(cardId);
+        if (card is null
+            || !card.IsActive
+            || string.IsNullOrWhiteSpace(description)
+            || totalAmount <= 0
+            || installmentsCount is < 1 or > MaximumInstallments)
+        {
+            return null;
+        }
+
+        if (!categoryId.HasValue)
+            return card;
+
+        var category = await _categoryRepository.GetByIdAsync(categoryId.Value);
+        return category is not null && category.Type == EntryType.Debit ? card : null;
+    }
+
+    private async Task<List<CreditCardInstallment>> GetPurchaseInstallmentsAsync(Guid purchaseId)
+    {
+        var installments = await _installmentRepository.GetAllAsync();
+        return installments.Where(item => item.CreditCardPurchaseId == purchaseId).ToList();
+    }
+
+    private async Task AddInstallmentsAsync(CreditCardPurchase purchase, CreditCard card)
+    {
+        var baseAmount = Math.Floor((purchase.TotalAmount / purchase.InstallmentsCount) * 100m) / 100m;
+        var firstReference = GetFirstReference(purchase.PurchaseDate, card.ClosingDay);
+
+        for (var number = 1; number <= purchase.InstallmentsCount; number++)
+        {
+            var reference = firstReference.AddMonths(number - 1);
+            var amount = number == purchase.InstallmentsCount
+                ? purchase.TotalAmount - (baseAmount * (purchase.InstallmentsCount - 1))
+                : baseAmount;
+
+            await _installmentRepository.AddAsync(new CreditCardInstallment
+            {
+                CreditCardPurchaseId = purchase.Id,
+                Number = number,
+                Amount = amount,
+                ReferenceDate = reference,
+                DueDate = CalculateDueDate(reference, card.ClosingDay, card.DueDay)
+            });
+        }
+    }
+
+    private static DateTime ToUtc(DateTime value) =>
+        DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+    private static DateTime GetFirstReference(DateTime purchaseDate, int closingDay)
+    {
+        var reference = new DateTime(
+            purchaseDate.Year,
+            purchaseDate.Month,
+            1,
+            0,
+            0,
+            0,
+            DateTimeKind.Utc);
+
+        return purchaseDate.Day <= closingDay ? reference : reference.AddMonths(1);
+    }
+
+    private static DateTime CalculateDueDate(DateTime reference, int closingDay, int dueDay)
+    {
+        var dueMonth = dueDay > closingDay ? reference : reference.AddMonths(1);
+        return new DateTime(dueMonth.Year, dueMonth.Month, dueDay, 0, 0, 0, DateTimeKind.Utc);
+    }
+}
