@@ -1,6 +1,199 @@
-import {FormEvent,useEffect,useState} from 'react';import {ArrowDownCircle,ArrowUpCircle,CalendarRange,ChevronLeft,ChevronRight,CreditCard,FolderPlus,LayoutDashboard,LogOut,PiggyBank,Plus,ReceiptText,Repeat2,ShoppingBag,Users,WalletCards,X} from 'lucide-react';import * as api from './api';import AuthPage from './AuthPage';import AnnualPlan from './AnnualPlan';import MonthlyBalance from './MonthlyBalance';import DashboardPage from './DashboardPage';import EntriesPage from './EntriesPage';import RecurringPage from './RecurringPage';import CardsPage from './CardsPage';import BudgetPage from './BudgetPage';import GroupMembersPage from './GroupMembersPage';import OnboardingWizard from './OnboardingWizard';
-function moveMonth(y:number,m:number,d:number){const x=new Date(y,m-1+d,1);return{year:x.getFullYear(),month:x.getMonth()+1}}function Period({year,month,onChange}:{year:number;month:number;onChange:(y:number,m:number)=>void}){const go=(d:number)=>{const p=moveMonth(year,month,d);onChange(p.year,p.month)};return <div className="period-nav"><button onClick={()=>go(-1)} aria-label="Mês anterior"><ChevronLeft/></button><div><span>Período</span><strong>{new Date(year,month-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</strong></div><button onClick={()=>go(1)} aria-label="Próximo mês"><ChevronRight/></button></div>}
-type CreateAction='expense'|'income'|'recurring'|'card'|'purchase'|'budget';type StandardCreateAction=Exclude<CreateAction,'card'>;type CreateRequest={id:number;action:CreateAction}|null;
-function Shell({logout}:{logout:()=>void}){const now=new Date(),[tab,setTab]=useState('balance'),[year,setYear]=useState(now.getFullYear()),[month,setMonth]=useState(now.getMonth()+1),[createOpen,setCreateOpen]=useState(false),[createRequest,setCreateRequest]=useState<CreateRequest>(null),[categoryOpen,setCategoryOpen]=useState(false),[categoryName,setCategoryName]=useState(''),[categoryType,setCategoryType]=useState(2),[categorySaving,setCategorySaving]=useState(false),[categoryError,setCategoryError]=useState('');const tabs=[['balance','Balanço mensal',WalletCards],['dash','Visão geral',LayoutDashboard],['entries','Lançamentos',ArrowDownCircle],['recurring','Recorrências',Repeat2],['cards','Cartões',CreditCard],['budget','Orçamento',PiggyBank],['annual','Planejamento anual',CalendarRange],['members','Grupo',Users]] as const;const current=tabs.find(x=>x[0]===tab);const change=(y:number,m:number)=>{setYear(y);setMonth(m)};const showPeriod=['dash','entries','cards','budget'].includes(tab);const signOut=()=>{api.session.clear();logout()};const create=(action:CreateAction)=>{const target=action==='expense'||action==='income'?'entries':action==='recurring'?'recurring':action==='card'||action==='purchase'?'cards':'budget';setTab(target);setCreateOpen(false);setCreateRequest({id:Date.now(),action})};const openCategory=()=>{setCreateOpen(false);setCategoryName('');setCategoryType(2);setCategoryError('');setCategoryOpen(true)};async function saveCategory(e:FormEvent){e.preventDefault();const name=categoryName.trim();if(!name)return;setCategorySaving(true);setCategoryError('');try{await api.createCategory({name,type:categoryType});setCategoryOpen(false)}catch(err){setCategoryError(err instanceof Error?err.message:'Falha ao criar categoria')}finally{setCategorySaving(false)}}const actions=[['expense','Despesa',ArrowDownCircle],['income','Receita',ArrowUpCircle],['recurring','Recorrência',Repeat2],['card','Novo cartão',CreditCard],['purchase','Compra no cartão',ShoppingBag],['budget','Limite de orçamento',ReceiptText]] as const;const standardRequest:{id:number;action:StandardCreateAction}|null=createRequest&&createRequest.action!=='card'?{id:createRequest.id,action:createRequest.action as StandardCreateAction}:null;return <div className="app-shell"><aside className="sidebar"><div className="logo"><span className="logo-mark"><WalletCards/></span><div><strong>CashFlow</strong><small>Compartilhado</small></div></div><nav>{tabs.map(([id,label,Icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div className="profile-dot">CF</div><div><span>Minha conta</span><small>Grupo financeiro</small></div><button className="icon-button" aria-label="Sair" onClick={signOut}><LogOut/></button></div></aside><main className="content"><header className="page-header"><div><span className="eyebrow">GESTOR FINANCEIRO</span><h1>{current?.[1]}</h1><p>{tab==='balance'?'Quanto entrou, quanto saiu e quanto sobrou.':tab==='entries'?'Seu histórico financeiro, sem formulário atrapalhando.':tab==='recurring'?'Compromissos que se repetem automaticamente.':tab==='cards'?'Cartões, compras e faturas em um só lugar.':tab==='budget'?'Planeje limites e acompanhe o que ainda pode gastar.':tab==='annual'?'Antecipe meses de aperto e planeje o ano.':tab==='members'?'Gerencie quem compartilha as finanças deste grupo.':'Sua situação financeira e próximos meses.'}</p></div><button className="mobile-logout" aria-label="Sair da conta" onClick={signOut}><LogOut size={19}/></button></header>{showPeriod&&<Period year={year} month={month} onChange={change}/>} {tab==='balance'&&<MonthlyBalance year={year} month={month} onPeriodChange={change}/>} {tab==='dash'&&<DashboardPage year={year} month={month}/>} {tab==='entries'&&<EntriesPage year={year} month={month} createRequest={standardRequest}/>} {tab==='recurring'&&<RecurringPage createRequest={standardRequest}/>} {tab==='cards'&&<CardsPage year={year} month={month} createRequest={createRequest}/>} {tab==='budget'&&<BudgetPage year={year} month={month} createRequest={standardRequest}/>} {tab==='annual'&&<AnnualPlan/>} {tab==='members'&&<GroupMembersPage/>}</main><div className={`global-create ${createOpen?'open':''}`}>{createOpen&&<><button className="global-create-scrim" aria-label="Fechar ações" onClick={()=>setCreateOpen(false)}/><div className="global-create-menu"><span>Adicionar</span>{actions.map(([id,label,Icon])=><button key={id} onClick={()=>create(id)}><Icon size={19}/><span>{label}</span></button>)}<button onClick={openCategory}><FolderPlus size={19}/><span>Categoria</span></button></div></>}<button className="global-create-fab" aria-label={createOpen?'Fechar menu de cadastro':'Adicionar'} onClick={()=>setCreateOpen(x=>!x)}>{createOpen?<X/>:<Plus/>}</button></div>{categoryOpen&&<div className="modern-modal-backdrop"><section className="modern-modal compact-modal"><div className="modern-modal-head"><div><span className="section-kicker">ORGANIZAR</span><h2>Nova categoria</h2><p>Crie uma categoria para usar em lançamentos, orçamento e planejamento anual.</p></div><button onClick={()=>setCategoryOpen(false)}><X/></button></div><form className="modern-form" onSubmit={saveCategory}>{categoryError&&<div className="error">{categoryError}</div>}<label>Nome<input autoFocus maxLength={80} value={categoryName} onChange={e=>setCategoryName(e.target.value)} placeholder="Ex.: Carro, Escola, Lazer" required/></label><label>Tipo<select value={categoryType} onChange={e=>setCategoryType(Number(e.target.value))}><option value={2}>Despesa</option><option value={1}>Receita</option></select></label><div className="modern-actions"><button type="button" className="modern-cancel" onClick={()=>setCategoryOpen(false)}>Cancelar</button><button className="primary-button" disabled={categorySaving}>{categorySaving?'Salvando...':'Criar categoria'}</button></div></form></section></div>}<nav className="mobile-nav">{tabs.map(([id,label,Icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={20}/><span>{label==='Balanço mensal'?'Balanço':label==='Recorrências'?'Recorr.':label==='Planejamento anual'?'Anual':label==='Visão geral'?'Visão':label}</span></button>)}</nav></div>}
-function LoggedApp({logout}:{logout:()=>void}){const[checking,setChecking]=useState(true),[onboarding,setOnboarding]=useState(false);useEffect(()=>{let active=true;const now=new Date();Promise.all([api.getAccounts(),api.getRecurring(),api.getCards(),api.getEntries(now.getFullYear(),now.getMonth()+1)]).then(([accounts,recurring,cards,entries])=>{if(!active)return;const hasMoney=accounts.some(x=>x.isActive&&Math.abs(x.initialBalance)>0)||recurring.some(x=>x.isActive)||cards.some(x=>x.isActive)||entries.length>0;setOnboarding(!hasMoney)}).catch(()=>{if(active)setOnboarding(false)}).finally(()=>{if(active)setChecking(false)});return()=>{active=false}},[]);if(checking)return <main className="login-page"><section className="login-card"><div className="brand-lockup"><div className="brand-mark"><WalletCards/></div><div><strong>CashFlow</strong><span>Preparando seu espaço...</span></div></div></section></main>;if(onboarding)return <OnboardingWizard onFinish={()=>setOnboarding(false)} onSkip={()=>setOnboarding(false)}/>;return <Shell logout={logout}/>}
-export default function AppModern(){const[logged,setLogged]=useState(!!api.session.token);return logged?<LoggedApp logout={()=>setLogged(false)}/>:<AuthPage done={()=>setLogged(true)}/>}
+import { useEffect, useState } from 'react';
+import { WalletCards } from 'lucide-react';
+import * as api from './api';
+import AnnualPlan from './AnnualPlan';
+import AuthPage from './AuthPage';
+import BudgetPage from './BudgetPage';
+import CardsPage from './CardsPage';
+import DashboardPage from './DashboardPage';
+import EntriesPage from './EntriesPage';
+import GroupMembersPage from './GroupMembersPage';
+import MonthlyBalance from './MonthlyBalance';
+import OnboardingWizard from './OnboardingWizard';
+import RecurringPage from './RecurringPage';
+import {
+  getCreateTarget,
+  toStandardCreateRequest,
+  type CreateAction,
+  type CreateRequest,
+} from './app/createActions';
+import { getNavigationItem, type TabId } from './app/navigation';
+import AppNavigation from './components/AppNavigation';
+import CategoryModal from './components/CategoryModal';
+import GlobalCreateMenu from './components/GlobalCreateMenu';
+import PageHeader from './components/PageHeader';
+import PeriodNavigator from './components/PeriodNavigator';
+
+type LogoutProps = {
+  logout: () => void;
+};
+
+function AppShell({ logout }: LogoutProps) {
+  const now = new Date();
+  const [tab, setTab] = useState<TabId>('balance');
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createRequest, setCreateRequest] = useState<CreateRequest>(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+
+  const currentPage = getNavigationItem(tab);
+  const standardCreateRequest = toStandardCreateRequest(createRequest);
+
+  const changePeriod = (nextYear: number, nextMonth: number) => {
+    setYear(nextYear);
+    setMonth(nextMonth);
+  };
+
+  const signOut = () => {
+    api.session.clear();
+    logout();
+  };
+
+  const create = (action: CreateAction) => {
+    setTab(getCreateTarget(action));
+    setCreateOpen(false);
+    setCreateRequest({ id: Date.now(), action });
+  };
+
+  const openCategory = () => {
+    setCreateOpen(false);
+    setCategoryOpen(true);
+  };
+
+  return (
+    <div className="app-shell">
+      <AppNavigation activeTab={tab} onNavigate={setTab} onLogout={signOut} />
+
+      <main className="content">
+        <PageHeader
+          title={currentPage.label}
+          description={currentPage.description}
+          onLogout={signOut}
+        />
+
+        {currentPage.hasPeriod && (
+          <PeriodNavigator year={year} month={month} onChange={changePeriod} />
+        )}
+
+        {tab === 'balance' && (
+          <MonthlyBalance year={year} month={month} onPeriodChange={changePeriod} />
+        )}
+        {tab === 'dash' && <DashboardPage year={year} month={month} />}
+        {tab === 'entries' && (
+          <EntriesPage
+            year={year}
+            month={month}
+            createRequest={standardCreateRequest}
+          />
+        )}
+        {tab === 'recurring' && <RecurringPage createRequest={standardCreateRequest} />}
+        {tab === 'cards' && (
+          <CardsPage year={year} month={month} createRequest={createRequest} />
+        )}
+        {tab === 'budget' && (
+          <BudgetPage
+            year={year}
+            month={month}
+            createRequest={standardCreateRequest}
+          />
+        )}
+        {tab === 'annual' && <AnnualPlan />}
+        {tab === 'members' && <GroupMembersPage />}
+      </main>
+
+      <GlobalCreateMenu
+        open={createOpen}
+        onToggle={() => setCreateOpen((value) => !value)}
+        onClose={() => setCreateOpen(false)}
+        onCreate={create}
+        onCreateCategory={openCategory}
+      />
+
+      <CategoryModal open={categoryOpen} onClose={() => setCategoryOpen(false)} />
+    </div>
+  );
+}
+
+function LoadingApp() {
+  return (
+    <main className="login-page">
+      <section className="login-card">
+        <div className="brand-lockup">
+          <div className="brand-mark">
+            <WalletCards />
+          </div>
+          <div>
+            <strong>CashFlow</strong>
+            <span>Preparando seu espaço...</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function LoggedApp({ logout }: LogoutProps) {
+  const [checking, setChecking] = useState(true);
+  const [onboarding, setOnboarding] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const now = new Date();
+
+    Promise.all([
+      api.getAccounts(),
+      api.getRecurring(),
+      api.getCards(),
+      api.getEntries(now.getFullYear(), now.getMonth() + 1),
+    ])
+      .then(([accounts, recurring, cards, entries]) => {
+        if (!active) {
+          return;
+        }
+
+        const hasFinancialData =
+          accounts.some((account) => account.isActive && Math.abs(account.initialBalance) > 0) ||
+          recurring.some((item) => item.isActive) ||
+          cards.some((card) => card.isActive) ||
+          entries.length > 0;
+
+        setOnboarding(!hasFinancialData);
+      })
+      .catch(() => {
+        if (active) {
+          setOnboarding(false);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setChecking(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (checking) {
+    return <LoadingApp />;
+  }
+
+  if (onboarding) {
+    const finishOnboarding = () => setOnboarding(false);
+    return <OnboardingWizard onFinish={finishOnboarding} onSkip={finishOnboarding} />;
+  }
+
+  return <AppShell logout={logout} />;
+}
+
+export default function AppModern() {
+  const [logged, setLogged] = useState(Boolean(api.session.token));
+
+  if (!logged) {
+    return <AuthPage done={() => setLogged(true)} />;
+  }
+
+  return <LoggedApp logout={() => setLogged(false)} />;
+}
