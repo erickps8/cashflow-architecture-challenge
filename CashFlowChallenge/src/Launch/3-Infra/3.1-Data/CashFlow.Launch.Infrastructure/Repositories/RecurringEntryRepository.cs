@@ -8,11 +8,8 @@ namespace CashFlow.Launch.Infrastructure.Repositories;
 
 public class RecurringEntryRepository : BaseRepository<RecurringEntry>, IRecurringEntryRepository
 {
-    private readonly CashFlowDbContext _context;
-
     public RecurringEntryRepository(CashFlowDbContext context) : base(context)
     {
-        _context = context;
     }
 
     public Task<List<RecurringEntry>> GetDueAsync(DateTime until)
