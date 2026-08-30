@@ -146,7 +146,8 @@ public class AuthControllerTests
         var controller = CreateController(db);
 
         var result = await controller.ForgotPassword(
-            new ForgotPasswordRequest("missing@test.local"));
+            new ForgotPasswordRequest("missing@test.local"),
+            CancellationToken.None);
 
         result.Should().BeOfType<OkObjectResult>();
         _passwordResetNotifier.Verify(
@@ -173,7 +174,8 @@ public class AuthControllerTests
         var controller = CreateController(db);
 
         var result = await controller.ForgotPassword(
-            new ForgotPasswordRequest(user.Email));
+            new ForgotPasswordRequest(user.Email),
+            CancellationToken.None);
 
         result.Should().BeOfType<OkObjectResult>();
         _passwordResetNotifier.Verify(
