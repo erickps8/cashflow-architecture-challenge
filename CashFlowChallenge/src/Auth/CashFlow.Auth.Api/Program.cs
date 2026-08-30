@@ -1,11 +1,11 @@
+using System.Text;
 using CashFlow.Auth.Api.Data;
-using Microsoft.AspNetCore.Authentication;
+using CashFlow.Auth.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,9 +15,21 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services
-    .AddIdentity<IdentityUser, IdentityRole>()
+    .AddIdentity<IdentityUser, IdentityRole>(options =>
+    {
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
+    })
     .AddEntityFrameworkStores<AuthDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromMinutes(30));
+
+builder.Services.AddScoped<IPasswordResetNotifier, LoggingPasswordResetNotifier>();
 
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 
@@ -43,17 +55,11 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "CashFlow Auth API",
-        Version = "v1"
-    });
-
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "CashFlow Auth API", Version = "v1" });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "Informe o token JWT no formato: Bearer {seu_token}",
@@ -62,7 +68,6 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -89,12 +94,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
