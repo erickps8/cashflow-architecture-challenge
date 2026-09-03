@@ -5,10 +5,14 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }) => {
   page.on('console', (message) => {
     if (message.type() === 'error') failures.push(`console: ${message.text()}`);
   });
+  page.on('pageerror', (error) => {
+    failures.push(`pageerror: ${error.message}`);
+  });
   page.on('response', (response) => {
     if (response.status() >= 500) failures.push(`${response.status()} ${response.request().method()} ${response.url()}`);
   });
 
+  const assertNoRuntimeFailures = () => expect(failures, failures.join('\n')).toEqual([]);
   const stamp = Date.now();
   const email = `e2e-${stamp}@cashflow.local`;
   const password = 'CashFlow@123';
@@ -16,6 +20,8 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.getByText('CashFlow').first()).toBeVisible();
+  assertNoRuntimeFailures();
+
   await page.getByRole('button', { name: 'Criar meu cadastro' }).click();
   await page.getByLabel('Nome').fill('Teste Automatizado');
   await page.getByLabel('E-mail').fill(email);
@@ -26,6 +32,7 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }) => {
   await expect(page.getByText('Vamos montar sua vida financeira?')).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Prefiro cadastrar sozinho' }).click();
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible({ timeout: 30_000 });
+  assertNoRuntimeFailures();
 
   const pages = [
     ['Balanço mensal', 'Balanço mensal'],
@@ -39,12 +46,14 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }) => {
   for (const [button, heading] of pages) {
     await page.getByRole('button', { name: button, exact: true }).first().click();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({ timeout: 30_000 });
+    assertNoRuntimeFailures();
   }
 
   await page.getByRole('button', { name: 'Lançamentos', exact: true }).first().click();
   await expect(page.getByRole('button', { name: 'Recorrências', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Recorrências', exact: true }).click();
   await expect(page.getByText('Receitas recorrentes')).toBeVisible({ timeout: 30_000 });
+  assertNoRuntimeFailures();
 
   await page.getByRole('button', { name: /sair/i }).first().click();
   await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
@@ -53,5 +62,5 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }) => {
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible({ timeout: 30_000 });
 
-  expect(failures, failures.join('\n')).toEqual([]);
+  assertNoRuntimeFailures();
 });
