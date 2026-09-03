@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { LogOut, WalletCards } from 'lucide-react';
 import { navigationItems, type TabId } from '../app/navigation';
 
@@ -12,6 +13,22 @@ export default function AppNavigation({
   onNavigate,
   onLogout,
 }: AppNavigationProps) {
+  const mobileNavigation = (
+    <nav className="mobile-nav" style={{ zIndex: 1000 }}>
+      {navigationItems.map(({ id, mobileLabel, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          className={activeTab === id ? 'active' : ''}
+          onClick={() => onNavigate(id)}
+        >
+          <Icon size={20} />
+          <span>{mobileLabel}</span>
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
     <>
       <aside className="sidebar">
@@ -51,19 +68,7 @@ export default function AppNavigation({
         </div>
       </aside>
 
-      <nav className="mobile-nav">
-        {navigationItems.map(({ id, mobileLabel, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={activeTab === id ? 'active' : ''}
-            onClick={() => onNavigate(id)}
-          >
-            <Icon size={20} />
-            <span>{mobileLabel}</span>
-          </button>
-        ))}
-      </nav>
+      {createPortal(mobileNavigation, document.body)}
     </>
   );
 }
