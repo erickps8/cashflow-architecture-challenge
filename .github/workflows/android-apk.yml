@@ -131,6 +131,9 @@ jobs:
           test -d android/app/src/main/assets/public
           diff -qr dist android/app/src/main/assets/public
 
+      - name: Apply CashFlow launcher branding
+        run: node scripts/apply-android-branding.mjs
+
       - name: Build debug APK
         working-directory: CashFlowChallenge/src/Web/cashflow-web/android
         run: chmod +x gradlew && ./gradlew assembleDebug
