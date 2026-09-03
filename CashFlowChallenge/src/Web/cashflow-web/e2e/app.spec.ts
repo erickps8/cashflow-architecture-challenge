@@ -14,10 +14,12 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }, test
 
   const assertNoRuntimeFailures = () => expect(failures, failures.join('\n')).toEqual([]);
   const isMobile = testInfo.project.name.toLowerCase().includes('mobile');
-  const stamp = Date.now();
-  const email = `e2e-${stamp}@cashflow.local`;
-  const password = 'CashFlow@123';
-  const group = `E2E ${stamp}`;
+  const uniqueRun = `${Date.now()}-${testInfo.project.name}-${testInfo.workerIndex}-${testInfo.retry}-${Math.random().toString(36).slice(2, 10)}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-');
+  const email = `e2e-${uniqueRun}@cashflow.local`;
+  const password = `E2e!A${uniqueRun.slice(-12)}9`;
+  const group = `E2E ${uniqueRun}`;
 
   const navigation = [
     { desktop: 'Balanço mensal', mobile: 'Balanço', heading: 'Balanço mensal' },
@@ -33,7 +35,26 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }, test
     const buttonName = isMobile ? mobile : desktop;
     const button = navigationRoot.getByRole('button', { name: buttonName, exact: true });
     await expect(button).toBeVisible();
-    await button.click();
+
+    if (isMobile) {
+      const box = await button.boundingBox();
+      expect(box, `Botão mobile ${buttonName} sem área clicável`).not.toBeNull();
+      const x = box!.x + box!.width / 2;
+      const y = box!.y + box!.height / 2;
+      const hitTarget = await page.evaluate(
+        ({ x, y }) => {
+          const element = document.elementFromPoint(x, y);
+          const clickable = element?.closest('button');
+          return clickable?.textContent?.trim() ?? element?.tagName ?? null;
+        },
+        { x, y },
+      );
+      expect(hitTarget, `Hit-test mobile em ${buttonName}`).toContain(buttonName);
+      await page.touchscreen.tap(x, y);
+    } else {
+      await button.click();
+    }
+
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({ timeout: 30_000 });
     assertNoRuntimeFailures();
   };
