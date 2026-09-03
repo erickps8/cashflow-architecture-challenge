@@ -12,6 +12,7 @@ export type BudgetCategory = { categoryId:string; categoryName:string; plannedAm
 export type Budget = { year:number; month:number; plannedAmount:number; actualAmount:number; remainingAmount:number; isOverBudget:boolean; categories:BudgetCategory[] };
 export type Recurring = { id:string; amount:number; type:number; description:string; frequency:number; startAt:string; endAt?:string; nextOccurrenceAt:string; isActive:boolean; accountId?:string; categoryId?:string };
 export type AuthResult = { token?:string; username?:string; email?:string; requiresGroup:boolean; pendingApproval:boolean; message?:string; group?:{ id:string; name:string; role:string } };
+export type GroupInfo = { id:string; name:string; role:string };
 
 const tokenKey='cashflow_token';
 const isNative=Capacitor.isNativePlatform();
@@ -32,8 +33,12 @@ export const resetPassword=(email:string,token:string,newPassword:string)=>reque
 export const changePassword=(currentPassword:string,newPassword:string)=>request<void>('/auth/password/change',{method:'POST',body:JSON.stringify({currentPassword,newPassword})});
 export const checkGroup=(name:string)=>request<{exists:boolean;name:string}>(`/auth/groups/check?name=${encodeURIComponent(name)}`);
 export async function chooseGroup(groupName:string){return storeAuth(await request<AuthResult>('/auth/group',{method:'POST',body:JSON.stringify({groupName})}))}
+export const cancelGroupRequest=()=>request<void>('/auth/group/request',{method:'DELETE'});
+export const getGroup=()=>request<GroupInfo>('/auth/group');
+export const renameGroup=(groupName:string)=>request<void>('/auth/group',{method:'PUT',body:JSON.stringify({groupName})});
 export const getGroupMembers=()=>request<{id:string;email:string;username:string;status:string;role:string}[]>('/auth/group/members');
 export const decideGroupMember=(id:string,approve:boolean)=>request<void>(`/auth/group/members/${id}`,{method:'PUT',body:JSON.stringify({approve})});
+export const removeGroupMember=(id:string)=>request<void>(`/auth/group/members/${id}`,{method:'DELETE'});
 export const getMonthly=(year:number,month:number,openingBalance:number)=>request<MonthlyBalance>(`/api/v1/balance/monthly/${year}/${month}?openingBalance=${openingBalance}`);
 export const getProjection=(year:number,month:number,months:number,initialBalance:number)=>request<Projection>(`/api/v1/balance/projection?startYear=${year}&startMonth=${month}&months=${months}&initialBalance=${initialBalance}`);
 export const getPlannedProjection=(year:number,month:number,months:number,initialBalance:number)=>request<Projection>(`/api/v1/balance/planned-projection?startYear=${year}&startMonth=${month}&months=${months}&initialBalance=${initialBalance}`);
