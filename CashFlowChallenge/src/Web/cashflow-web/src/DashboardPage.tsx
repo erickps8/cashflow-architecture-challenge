@@ -52,7 +52,6 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
     return () => { active = false; };
   }, [year, month]);
 
-  const reserve = Number(localStorage.getItem('cashflow_annual_reserve') ?? 0) || 0;
   const projectionData = useMemo(() => projection?.months.map((item) => ({ name: `${monthName(item.month)}/${String(item.year).slice(2)}`, saldo: item.closingBalance })) ?? [], [projection]);
   const expenseData = useMemo(() => balance ? [{ name: 'Diretas', value: balance.directExpenseAmount }, { name: 'Recorrentes', value: balance.recurringExpenseAmount }, { name: 'Cartão', value: balance.creditCardAmount }].filter((item) => item.value > 0) : [], [balance]);
 
@@ -81,21 +80,20 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
   const currentEntryExpense = entries.filter((entry) => entry.type === 2).reduce((sum, entry) => sum + entry.amount, 0);
   const previousEntryExpense = previousEntries.filter((entry) => entry.type === 2).reduce((sum, entry) => sum + entry.amount, 0);
   const expenseChange = previousEntryExpense > 0 ? ((currentEntryExpense - previousEntryExpense) / previousEntryExpense) * 100 : null;
-  const canSpend = balance ? Math.max(0, balance.closingBalance - reserve) : 0;
-  const reserveGap = balance ? balance.closingBalance - reserve : 0;
+  const canSpend = balance ? Math.max(0, balance.closingBalance) : 0;
   const firstNegative = projection?.months.find((item) => item.isNegative);
   const topCategory = categoryBreakdown[0];
 
   const alerts = useMemo(() => {
     const items: Array<{ tone: 'good' | 'bad' | 'warn'; text: string }> = [];
-    if (reserve > 0 && reserveGap < 0) items.push({ tone: 'bad', text: `O fechamento previsto fica ${money(Math.abs(reserveGap))} abaixo da sua reserva mínima.` });
-    else if (canSpend > 0) items.push({ tone: 'good', text: `Você ainda pode gastar até ${money(canSpend)} sem consumir a reserva mínima.` });
+    if (canSpend > 0) items.push({ tone: 'good', text: `Após os compromissos conhecidos, ainda restam ${money(canSpend)} de margem neste mês.` });
+    else if (balance && balance.closingBalance < 0) items.push({ tone: 'bad', text: `O mês está projetado para fechar ${money(Math.abs(balance.closingBalance))} no negativo.` });
     if (firstNegative) items.push({ tone: 'bad', text: `Mantendo os compromissos atuais, ${monthName(firstNegative.month)}/${firstNegative.year} fecha negativo.` });
     if (expenseChange !== null && expenseChange >= 15) items.push({ tone: 'warn', text: `Seus gastos lançados estão ${expenseChange.toFixed(0)}% maiores que no mês anterior.` });
     if (topCategory?.change !== null && topCategory.change >= 20) items.push({ tone: 'warn', text: `${topCategory.name} subiu ${topCategory.change.toFixed(0)}% em relação ao mês anterior.` });
     if (!items.length) items.push({ tone: 'good', text: 'Nenhum alerta financeiro relevante para este mês.' });
     return items.slice(0, 4);
-  }, [reserve, reserveGap, canSpend, firstNegative, expenseChange, topCategory]);
+  }, [canSpend, balance, firstNegative, expenseChange, topCategory]);
 
   if (loading || !balance) return <div className="panel skeleton-panel"><div className="skeleton" /></div>;
 
@@ -111,8 +109,7 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
       <article className="panel">
         <div className="panel-title"><div><span className="section-kicker">DISPONÍVEL PARA GASTAR</span><h2>Quanto ainda cabe no mês</h2></div><span className={canSpend > 0 ? 'status good' : 'status bad'}><Wallet size={15} />{canSpend > 0 ? 'Com margem' : 'Sem margem'}</span></div>
         <div className="breakdown">
-          <div><span>Saldo previsto</span><strong>{money(balance.closingBalance)}</strong></div>
-          <div><span>Reserva mínima protegida</span><strong>{money(reserve)}</strong></div>
+          <div><span>Saldo previsto após compromissos conhecidos</span><strong>{money(balance.closingBalance)}</strong></div>
           <div className="total-row"><span>Pode gastar</span><strong className={canSpend > 0 ? 'positive-text' : 'negative-text'}>{money(canSpend)}</strong></div>
         </div>
       </article>
