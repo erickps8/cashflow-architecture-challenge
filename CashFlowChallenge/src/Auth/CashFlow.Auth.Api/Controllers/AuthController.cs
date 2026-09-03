@@ -17,6 +17,8 @@ namespace CashFlow.Auth.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string DisplayNameClaim = "display_name";
+    private const int MaxDisplayNameLength = 80;
     private static readonly Guid LegacyGroupId = new("11111111-1111-1111-1111-111111111111");
     private static readonly string[] DefaultFunctionalRoles = ["entries", "entries-create"];
 
@@ -52,6 +54,9 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
+        var displayName = NormalizeDisplayName(request.Name);
+        if (string.IsNullOrWhiteSpace(displayName)) return BadRequest("Informe seu nome.");
+        if (displayName.Length > MaxDisplayNameLength) return BadRequest($"O nome deve ter no máximo {MaxDisplayNameLength} caracteres.");
         if (string.IsNullOrWhiteSpace(request.GroupName)) return BadRequest("Informe o grupo.");
         if (string.IsNullOrWhiteSpace(request.Email)) return BadRequest("Informe o e-mail.");
         if (await _users.FindByEmailAsync(request.Email) is not null) return Conflict("E-mail já cadastrado.");
@@ -63,12 +68,12 @@ public class AuthController : ControllerBase
 
         try
         {
+            await SetDisplayName(user, displayName);
             var membership = await JoinOrCreateGroup(user.Id, request.GroupName);
-            return Ok(State(
+            return Ok(await State(
                 user,
                 membership,
-                membership.Status == GroupMemberStatus.Active ? Token(user, membership) : PendingToken(user),
-                request.Username.Trim()));
+                membership.Status == GroupMemberStatus.Active ? Token(user, membership) : PendingToken(user)));
         }
         catch
         {
@@ -153,14 +158,19 @@ public class AuthController : ControllerBase
         }
 
         var user = await _users.FindByEmailAsync(payload.Email);
+        var googleName = NormalizeDisplayName(payload.Name ?? string.Empty);
+        if (googleName.Length > MaxDisplayNameLength) googleName = googleName[..MaxDisplayNameLength].Trim();
+
         if (user is null)
         {
             user = new IdentityUser { UserName = payload.Email, Email = payload.Email, EmailConfirmed = true };
             var creation = await _users.CreateAsync(user);
             if (!creation.Succeeded) return BadRequest(creation.Errors);
-            return Ok(new { token = PendingToken(user), requiresGroup = true, pendingApproval = false, email = user.Email, name = payload.Name });
+            if (!string.IsNullOrWhiteSpace(googleName)) await SetDisplayName(user, googleName);
+            return Ok(await State(user, null, PendingToken(user)));
         }
 
+        if (!string.IsNullOrWhiteSpace(googleName)) await SetDisplayName(user, googleName);
         return Ok(await BuildLogin(user));
     }
 
@@ -175,7 +185,7 @@ public class AuthController : ControllerBase
             return Conflict("Usuário já possui grupo ou solicitação pendente.");
 
         var membership = await JoinOrCreateGroup(user.Id, request.GroupName);
-        return Ok(State(
+        return Ok(await State(
             user,
             membership,
             membership.Status == GroupMemberStatus.Active ? Token(user, membership) : PendingToken(user)));
@@ -248,6 +258,7 @@ public class AuthController : ControllerBase
             result.Add(new
             {
                 id = membership.Id,
+                name = user is null ? null : await GetDisplayName(user),
                 email = user?.Email,
                 username = user?.UserName,
                 status = membership.Status.ToString(),
@@ -306,7 +317,7 @@ public class AuthController : ControllerBase
         if (membership?.GroupId == LegacyGroupId)
             membership = await MoveLegacyNamedGroupToFreshTenant(membership.Group, user.Id);
 
-        return State(
+        return await State(
             user,
             membership,
             membership?.Status == GroupMemberStatus.Active
@@ -314,10 +325,11 @@ public class AuthController : ControllerBase
                 : PendingToken(user));
     }
 
-    private object State(IdentityUser user, GroupMembership? membership, string? token, string? displayName = null) => new
+    private async Task<object> State(IdentityUser user, GroupMembership? membership, string? token) => new
     {
         token,
-        username = displayName ?? user.UserName,
+        name = await GetDisplayName(user),
+        username = user.UserName,
         email = user.Email,
         requiresGroup = membership is null,
         pendingApproval = membership?.Status == GroupMemberStatus.Pending,
@@ -437,6 +449,35 @@ public class AuthController : ControllerBase
         new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
     ];
 
+    private async Task<string> GetDisplayName(IdentityUser user)
+    {
+        var claims = await _users.GetClaimsAsync(user);
+        var stored = claims.FirstOrDefault(x => x.Type == DisplayNameClaim)?.Value;
+        if (!string.IsNullOrWhiteSpace(stored)) return stored;
+
+        var fallback = user.Email?.Split('@', 2)[0] ?? user.UserName ?? "Usuário";
+        return string.IsNullOrWhiteSpace(fallback) ? "Usuário" : fallback;
+    }
+
+    private async Task SetDisplayName(IdentityUser user, string name)
+    {
+        var normalized = NormalizeDisplayName(name);
+        if (string.IsNullOrWhiteSpace(normalized)) return;
+
+        var claims = await _users.GetClaimsAsync(user);
+        var current = claims.FirstOrDefault(x => x.Type == DisplayNameClaim);
+        if (current?.Value == normalized) return;
+
+        if (current is not null)
+        {
+            var removal = await _users.RemoveClaimAsync(user, current);
+            if (!removal.Succeeded) throw new InvalidOperationException("Não foi possível atualizar o nome do usuário.");
+        }
+
+        var addition = await _users.AddClaimAsync(user, new Claim(DisplayNameClaim, normalized));
+        if (!addition.Succeeded) throw new InvalidOperationException("Não foi possível salvar o nome do usuário.");
+    }
+
     private string WriteToken(IEnumerable<Claim> claims, int hours)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
@@ -461,4 +502,7 @@ public class AuthController : ControllerBase
     }
 
     private static string Normalize(string name) => name.Trim().ToUpperInvariant();
+
+    private static string NormalizeDisplayName(string name) =>
+        string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
 }
