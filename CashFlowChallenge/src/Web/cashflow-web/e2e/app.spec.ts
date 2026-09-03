@@ -29,8 +29,11 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }, test
   ] as const;
 
   const openNavigationItem = async (desktop: string, mobile: string, heading: string) => {
+    const navigationRoot = page.locator(isMobile ? '.mobile-nav' : '.sidebar');
     const buttonName = isMobile ? mobile : desktop;
-    await page.getByRole('button', { name: buttonName, exact: true }).click();
+    const button = navigationRoot.getByRole('button', { name: buttonName, exact: true });
+    await expect(button).toBeVisible();
+    await button.click();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({ timeout: 30_000 });
     assertNoRuntimeFailures();
   };
@@ -68,7 +71,10 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }, test
   await expect(page.getByText('Receitas recorrentes')).toBeVisible({ timeout: 30_000 });
   assertNoRuntimeFailures();
 
-  await page.getByRole('button', { name: /sair/i }).first().click();
+  const logout = isMobile
+    ? page.locator('.mobile-logout').getByRole('button', { name: /sair/i })
+    : page.locator('.sidebar').getByRole('button', { name: /sair/i });
+  await logout.click();
   await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
   await page.getByLabel('E-mail ou usuário').fill(email);
   await page.getByLabel('Senha').fill(password);
