@@ -128,16 +128,19 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
         </div>
 
         <div className="modern-list">
-          {list.map((item) => (
-            <button type="button" className="modern-row modern-row-button" key={item.id} onClick={() => openItem(item)}>
-              <div className="modern-row-icon"><Repeat2 /></div>
-              <div>
-                <strong>{item.description}</strong>
-                <span>{item.isActive ? `Próxima: ${new Date(item.nextOccurrenceAt).toLocaleDateString('pt-BR')}` : 'Inativa'}</span>
-              </div>
-              <strong>{money(item.amount)}</strong>
-            </button>
-          ))}
+          {list.map((item) => {
+            const income = item.type === 1;
+            return (
+              <button type="button" className={`modern-row modern-row-button recurring-row ${income ? 'recurring-income' : 'recurring-expense'}`} key={item.id} onClick={() => openItem(item)}>
+                <div className="modern-row-icon"><Repeat2 /></div>
+                <div>
+                  <strong>{item.description}</strong>
+                  <span><b className="recurring-kind">{income ? 'Entrada' : 'Saída'}</b>{item.isActive ? ` · Próxima: ${new Date(item.nextOccurrenceAt).toLocaleDateString('pt-BR')}` : ' · Inativa'}</span>
+                </div>
+                <strong className="recurring-amount">{income ? '+' : '−'} {money(item.amount)}</strong>
+              </button>
+            );
+          })}
         </div>
       </article>
 
