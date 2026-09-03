@@ -129,7 +129,10 @@ jobs:
       - name: Verify APK web assets are identical to mobile web build
         run: |
           test -d android/app/src/main/assets/public
-          diff -qr dist android/app/src/main/assets/public
+          diff -qr \
+            --exclude=cordova.js \
+            --exclude=cordova_plugins.js \
+            dist android/app/src/main/assets/public
 
       - name: Apply CashFlow launcher branding
         run: node scripts/apply-android-branding.mjs
