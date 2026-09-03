@@ -158,7 +158,7 @@ public class AuthController : ControllerBase
             user = new IdentityUser { UserName = payload.Email, Email = payload.Email, EmailConfirmed = true };
             var creation = await _users.CreateAsync(user);
             if (!creation.Succeeded) return BadRequest(creation.Errors);
-            return Ok(new { token = Token(user, null), requiresGroup = true, email = user.Email, name = payload.Name });
+            return Ok(new { token = PendingToken(user), requiresGroup = true, pendingApproval = false, email = user.Email, name = payload.Name });
         }
 
         return Ok(await BuildLogin(user));
@@ -291,7 +291,7 @@ public class AuthController : ControllerBase
         var target = await _db.GroupMemberships
             .FirstOrDefaultAsync(x => x.Id == id && x.GroupId == currentMembership.GroupId);
         if (target is null) return NotFound();
-        if (target.Role == GroupMemberRole.Owner) return BadRequest("O gestor do grupo não pode ser removido.");
+        if (target.Role == GroupMemberRole.Owner) return BadRequest("O gestor não pode ser removido do próprio grupo.");
 
         _db.GroupMemberships.Remove(target);
         await _db.SaveChangesAsync();
@@ -311,7 +311,7 @@ public class AuthController : ControllerBase
             membership,
             membership?.Status == GroupMemberStatus.Active
                 ? Token(user, membership)
-                : membership?.Status == GroupMemberStatus.Pending ? PendingToken(user) : Token(user, null));
+                : PendingToken(user));
     }
 
     private object State(IdentityUser user, GroupMembership? membership, string? token, string? displayName = null) => new
@@ -415,20 +415,17 @@ public class AuthController : ControllerBase
         return await _db.GroupMemberships.Include(x => x.Group).FirstAsync(x => x.Id == pending.Id);
     }
 
-    private string Token(IdentityUser user, GroupMembership? membership)
+    private string Token(IdentityUser user, GroupMembership membership)
     {
         var claims = BaseClaims(user);
 
         foreach (var role in DefaultFunctionalRoles)
             claims.Add(new Claim(ClaimTypes.Role, role));
 
-        if (membership is not null)
-        {
-            claims.Add(new Claim("group_id", membership.GroupId.ToString()));
-            claims.Add(new Claim("group_role", membership.Role.ToString()));
-        }
+        claims.Add(new Claim("group_id", membership.GroupId.ToString()));
+        claims.Add(new Claim("group_role", membership.Role.ToString()));
 
-        return WriteToken(claims, membership is null ? 1 : 8);
+        return WriteToken(claims, 8);
     }
 
     private string PendingToken(IdentityUser user) => WriteToken(BaseClaims(user), 1);
