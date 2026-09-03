@@ -45,7 +45,6 @@ export default function AuthPage({ done }: { done: () => void }) {
 
   async function finish(result: api.AuthResult) {
     if (result.pendingApproval) {
-      api.session.clear();
       setMode('pending');
       return;
     }
@@ -141,11 +140,28 @@ export default function AuthPage({ done }: { done: () => void }) {
     }
   }
 
+  async function cancelPendingRequest() {
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.cancelGroupRequest();
+      api.session.clear();
+      setGroup('');
+      setMessage('Solicitação cancelada. Entre novamente para escolher outro grupo.');
+      setMode('login');
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : 'Não foi possível cancelar a solicitação.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (mode === 'pending') {
     return (
       <main className="login-page"><section className="login-card">
         <div className="brand-lockup"><div className="brand-mark"><WalletCards /></div><div><strong>CashFlow</strong><span>Finanças compartilhadas</span></div></div>
-        <div className="login-copy"><span className="eyebrow">SOLICITAÇÃO ENVIADA</span><h1>Aguardando aprovação.</h1><p>O gestor do grupo precisa aceitar sua entrada. Depois disso, entre novamente.</p><button className="primary-button" onClick={() => setMode('login')}>Voltar ao login</button></div>
+        <div className="login-copy"><span className="eyebrow">SOLICITAÇÃO ENVIADA</span><h1>Aguardando aprovação.</h1><p>O gestor do grupo precisa aceitar sua entrada. Você pode aguardar ou cancelar a solicitação para escolher outro grupo.</p>{error && <div className="error">{error}</div>}<button className="primary-button" disabled={loading} onClick={() => setMode('login')}>Voltar ao login</button><button className="auth-link" disabled={loading} onClick={() => void cancelPendingRequest()}>{loading ? 'Cancelando...' : 'Cancelar solicitação'}</button></div>
       </section></main>
     );
   }
