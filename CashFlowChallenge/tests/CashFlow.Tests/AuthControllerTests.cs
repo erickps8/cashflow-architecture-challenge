@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CashFlow.Auth.Api.Controllers;
 using CashFlow.Auth.Api.Data;
 using CashFlow.Auth.Api.Models;
@@ -30,6 +31,11 @@ public class AuthControllerTests
             null!,
             null!,
             null!);
+
+        _users.Setup(x => x.GetClaimsAsync(It.IsAny<IdentityUser>()))
+            .ReturnsAsync(new List<Claim>());
+        _users.Setup(x => x.AddClaimAsync(It.IsAny<IdentityUser>(), It.IsAny<Claim>()))
+            .ReturnsAsync(IdentityResult.Success);
 
         _configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -82,7 +88,7 @@ public class AuthControllerTests
 
         var result = await controller.Register(new RegisterRequest
         {
-            Username = "Owner",
+            Name = "Owner",
             Email = "owner@test.local",
             Password = "123456",
             GroupName = "Familia Teste"
@@ -122,7 +128,7 @@ public class AuthControllerTests
 
         var result = await controller.Register(new RegisterRequest
         {
-            Username = "Member",
+            Name = "Member",
             Email = "member@test.local",
             Password = "123456",
             GroupName = "Familia Teste"
