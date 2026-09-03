@@ -71,7 +71,7 @@ function AppShell({ logout }: LogoutProps) {
         />
 
         {currentPage.hasPeriod && (
-          <PeriodNavigator year={year} month={month} onChange={changePeriod} />
+          <PeriodNavigator year={year} month={month} compact onChange={changePeriod} />
         )}
 
         {tab === 'dash' && <DashboardPage year={year} month={month} />}
