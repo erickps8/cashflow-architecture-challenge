@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Plus, Repeat2, Trash2, X } from 'lucide-react';
 import * as api from './api';
 import './forms-modern.css';
+import './recurring.css';
 
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
