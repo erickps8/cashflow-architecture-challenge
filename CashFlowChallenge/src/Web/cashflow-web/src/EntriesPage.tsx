@@ -3,11 +3,13 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Plus,
+  Repeat2,
   Search,
   Trash2,
   X,
 } from 'lucide-react';
 import * as api from './api';
+import RecurringPage from './RecurringPage';
 import './entries.css';
 
 const money = (value: number) =>
@@ -18,7 +20,7 @@ const isoDate = (year: number, month: number) =>
 
 type CreateRequest = {
   id: number;
-  action: 'expense' | 'income' | 'recurring' | 'purchase' | 'budget';
+  action: 'expense' | 'income' | 'recurring' | 'purchase';
 } | null;
 
 type EntryForm = {
@@ -36,7 +38,10 @@ type EntriesPageProps = {
   createRequest?: CreateRequest;
 };
 
+type EntriesView = 'entries' | 'recurring';
+
 export default function EntriesPage({ year, month, createRequest }: EntriesPageProps) {
+  const [view, setView] = useState<EntriesView>('entries');
   const [list, setList] = useState<api.Entry[]>([]);
   const [accounts, setAccounts] = useState<api.Account[]>([]);
   const [categories, setCategories] = useState<api.Category[]>([]);
@@ -71,7 +76,13 @@ export default function EntriesPage({ year, month, createRequest }: EntriesPageP
   }, [year, month]);
 
   useEffect(() => {
+    if (createRequest?.action === 'recurring') {
+      setView('recurring');
+      return;
+    }
+
     if (createRequest?.action === 'expense' || createRequest?.action === 'income') {
+      setView('entries');
       openNew(createRequest.action === 'income' ? 1 : 2);
     }
   }, [createRequest?.id]);
@@ -139,59 +150,88 @@ export default function EntriesPage({ year, month, createRequest }: EntriesPageP
 
   return (
     <section className="entries-page">
-      <div className="entries-summary">
-        <div>
-          <span><ArrowUpCircle />Entrou</span>
-          <strong className="positive-text">{money(totals.income)}</strong>
-        </div>
-        <div>
-          <span><ArrowDownCircle />Saiu</span>
-          <strong className="negative-text">{money(totals.expense)}</strong>
-        </div>
-        <div className="entries-result">
-          <span>Resultado</span>
-          <strong>{money(totals.income - totals.expense)}</strong>
-        </div>
+      <div className="entries-view-tabs" role="tablist" aria-label="Tipo de lançamento">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'entries'}
+          className={view === 'entries' ? 'active' : ''}
+          onClick={() => setView('entries')}
+        >
+          <ArrowDownCircle size={17} />
+          Lançamentos
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'recurring'}
+          className={view === 'recurring' ? 'active' : ''}
+          onClick={() => setView('recurring')}
+        >
+          <Repeat2 size={17} />
+          Recorrências
+        </button>
       </div>
 
-      <article className="panel entries-history">
-        <div className="entries-toolbar">
-          <div>
-            <span className="section-kicker">HISTÓRICO</span>
-            <h2>Movimentações do mês</h2>
-            <p>Toque em um lançamento para ver ou editar</p>
+      {view === 'recurring' ? (
+        <RecurringPage createRequest={createRequest} />
+      ) : (
+        <>
+          <div className="entries-summary">
+            <div>
+              <span><ArrowUpCircle />Entrou</span>
+              <strong className="positive-text">{money(totals.income)}</strong>
+            </div>
+            <div>
+              <span><ArrowDownCircle />Saiu</span>
+              <strong className="negative-text">{money(totals.expense)}</strong>
+            </div>
+            <div className="entries-result">
+              <span>Resultado</span>
+              <strong>{money(totals.income - totals.expense)}</strong>
+            </div>
           </div>
-          <button className="desktop-add-button" onClick={() => openNew()}>
-            <Plus size={18} />Adicionar
-          </button>
-        </div>
 
-        <div className="entries-search">
-          <Search size={17} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar lançamento" />
-        </div>
+          <article className="panel entries-history">
+            <div className="entries-toolbar">
+              <div>
+                <span className="section-kicker">HISTÓRICO</span>
+                <h2>Movimentações do mês</h2>
+                <p>Toque em um lançamento para ver ou editar</p>
+              </div>
+              <button className="desktop-add-button" onClick={() => openNew()}>
+                <Plus size={18} />Adicionar
+              </button>
+            </div>
 
-        <div className="entries-list">
-          {filtered.map((entry) => (
-            <button type="button" className="entry-row" key={entry.id} onClick={() => openItem(entry)}>
-              <div className={`entry-icon ${entry.type === 1 ? 'income' : 'expense'}`}>
-                {entry.type === 1 ? <ArrowUpCircle /> : <ArrowDownCircle />}
-              </div>
-              <div className="entry-copy">
-                <strong>{entry.description}</strong>
-                <span>
-                  {new Date(entry.occurredAt).toLocaleDateString('pt-BR')}
-                  {categoryName(entry.categoryId) ? ` · ${categoryName(entry.categoryId)}` : ''}
-                  {accountName(entry.accountId) ? ` · ${accountName(entry.accountId)}` : ''}
-                </span>
-              </div>
-              <strong className={entry.type === 2 ? 'negative-text' : 'positive-text'}>
-                {entry.type === 2 ? '- ' : '+ '}{money(entry.amount)}
-              </strong>
-            </button>
-          ))}
-        </div>
-      </article>
+            <div className="entries-search">
+              <Search size={17} />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar lançamento" />
+            </div>
+
+            <div className="entries-list">
+              {filtered.map((entry) => (
+                <button type="button" className="entry-row" key={entry.id} onClick={() => openItem(entry)}>
+                  <div className={`entry-icon ${entry.type === 1 ? 'income' : 'expense'}`}>
+                    {entry.type === 1 ? <ArrowUpCircle /> : <ArrowDownCircle />}
+                  </div>
+                  <div className="entry-copy">
+                    <strong>{entry.description}</strong>
+                    <span>
+                      {new Date(entry.occurredAt).toLocaleDateString('pt-BR')}
+                      {categoryName(entry.categoryId) ? ` · ${categoryName(entry.categoryId)}` : ''}
+                      {accountName(entry.accountId) ? ` · ${accountName(entry.accountId)}` : ''}
+                    </span>
+                  </div>
+                  <strong className={entry.type === 2 ? 'negative-text' : 'positive-text'}>
+                    {entry.type === 2 ? '- ' : '+ '}{money(entry.amount)}
+                  </strong>
+                </button>
+              ))}
+            </div>
+          </article>
+        </>
+      )}
 
       {open && (
         <div className="entry-modal-backdrop">
