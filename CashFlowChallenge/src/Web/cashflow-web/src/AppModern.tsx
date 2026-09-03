@@ -179,7 +179,7 @@ function LoggedApp({ logout }: LogoutProps) {
 }
 
 export default function AppModern() {
-  const [logged, setLogged] = useState(Boolean(api.session.token));
+  const [logged, setLogged] = useState(Boolean(api.session.token && api.session.state === 'active'));
 
   if (!logged) {
     return <AuthPage done={() => setLogged(true)} />;
