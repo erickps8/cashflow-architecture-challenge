@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { LogOut, WalletCards } from 'lucide-react';
 import { navigationItems, type TabId } from '../app/navigation';
 
@@ -67,7 +68,7 @@ export default function AppNavigation({
         </div>
       </aside>
 
-      {mobileNavigation}
+      {createPortal(mobileNavigation, document.body)}
     </>
   );
 }
