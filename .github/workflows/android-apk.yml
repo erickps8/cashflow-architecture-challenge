@@ -1,6 +1,9 @@
 name: Android APK
 
 on:
+  pull_request:
+    branches:
+      - develop
   push:
     branches:
       - develop
@@ -90,6 +93,7 @@ jobs:
         run: docker compose down -v
 
   validate-android-parity-and-build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     needs: [validate-backend, validate-web-functional]
     runs-on: ubuntu-latest
     defaults:
