@@ -82,7 +82,7 @@ public class AuthControllerTests
 
         var result = await controller.Register(new RegisterRequest
         {
-            Username = "Owner",
+            Name = "Owner",
             Email = "owner@test.local",
             Password = "123456",
             GroupName = "Familia Teste"
@@ -122,7 +122,7 @@ public class AuthControllerTests
 
         var result = await controller.Register(new RegisterRequest
         {
-            Username = "Member",
+            Name = "Member",
             Email = "member@test.local",
             Password = "123456",
             GroupName = "Familia Teste"
