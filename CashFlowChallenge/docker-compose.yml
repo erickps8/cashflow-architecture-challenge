@@ -17,6 +17,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Google__ClientId=${GOOGLE_CLIENT_ID:-}
+      - App__PublicUrl=${APP_PUBLIC_URL:-https://plania.cloud}
+      - Email__From=${EMAIL_FROM:-}
+      - Email__Smtp__Host=${EMAIL_SMTP_HOST:-}
+      - Email__Smtp__Port=${EMAIL_SMTP_PORT:-587}
+      - Email__Smtp__EnableSsl=${EMAIL_SMTP_ENABLE_SSL:-true}
+      - Email__Smtp__Username=${EMAIL_SMTP_USERNAME:-}
+      - Email__Smtp__Password=${EMAIL_SMTP_PASSWORD:-}
     ports: ["5003:8080"]
     depends_on: {postgres: {condition: service_healthy}}
     restart: always

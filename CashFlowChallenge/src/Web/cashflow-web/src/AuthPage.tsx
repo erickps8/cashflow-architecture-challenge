@@ -29,8 +29,9 @@ export default function AuthPage({ done }: { done: () => void }) {
         ? 'group'
         : 'login';
 
-  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [user, setUser] = useState('');
+  const [name, setName] = useState('');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState(resetEmail);
   const [pass, setPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
@@ -109,6 +110,10 @@ export default function AuthPage({ done }: { done: () => void }) {
       setError('Sua senha ainda não atende aos requisitos abaixo.');
       return;
     }
+    if (mode === 'register' && !name.trim()) {
+      setError('Informe seu nome.');
+      return;
+    }
     if (mode === 'reset' && pass !== confirmPass) {
       setError('As senhas não conferem.');
       return;
@@ -124,7 +129,7 @@ export default function AuthPage({ done }: { done: () => void }) {
       } else if (mode === 'register') {
         const check = await api.checkGroup(group);
         if (check.exists && !confirm(`O grupo “${check.name}” já existe. Deseja solicitar entrada nele?`)) return;
-        await finish(await api.register(user, email, pass, group));
+        await finish(await api.register(name, email, pass, group));
       } else if (mode === 'group') {
         const check = await api.checkGroup(group);
         if (check.exists && !confirm(`O grupo “${check.name}” já existe. Deseja solicitar entrada nele?`)) return;
@@ -181,7 +186,7 @@ export default function AuthPage({ done }: { done: () => void }) {
       {mode !== 'login' && <div className="login-copy"><span className="eyebrow">{mode === 'forgot' || mode === 'reset' ? 'SEGURANÇA' : mode === 'register' ? 'CRIAR CONTA' : 'SEU GRUPO'}</span><h1>{title}</h1><p>{mode === 'forgot' ? 'Informe seu e-mail e enviaremos um link temporário.' : mode === 'reset' ? 'O link é temporário e só pode ser usado para redefinir sua senha.' : mode === 'group' ? 'Você precisa estar em um grupo antes de acessar qualquer dado financeiro.' : 'Acesse suas finanças com segurança.'}</p></div>}
       <form onSubmit={submit}>
         {mode === 'login' && <label>E-mail ou usuário<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label>}
-        {mode === 'register' && <><label>Nome<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label><label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} /></label></>}
+        {mode === 'register' && <><label>Nome<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} autoComplete="name" disabled={loading} /></label><label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} /></label></>}
         {mode === 'forgot' && <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} /></label>}
         {(mode === 'login' || mode === 'register' || mode === 'reset') && <label>Senha<input type="password" value={pass} onChange={(e) => setPass(e.target.value)} required disabled={loading} />{(mode === 'register' || mode === 'reset') && <div className="password-rules"><small>Sua senha precisa ter:</small>{passwordRules.map(([text, valid]) => <span key={text} className={valid ? 'valid' : ''}><Check size={14} />{text}</span>)}</div>}</label>}
         {mode === 'reset' && <label>Confirmar nova senha<input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} required disabled={loading} /></label>}

@@ -37,6 +37,10 @@ function AppShell({ logout }: LogoutProps) {
 
   const currentPage = getNavigationItem(tab);
   const standardCreateRequest = toStandardCreateRequest(createRequest);
+  const firstName = api.session.name?.trim().split(/\s+/)[0];
+  const pageDescription = tab === 'dash' && firstName
+    ? `Olá, ${firstName}. ${currentPage.description}`
+    : currentPage.description;
 
   const changePeriod = (nextYear: number, nextMonth: number) => {
     setYear(nextYear);
@@ -61,12 +65,18 @@ function AppShell({ logout }: LogoutProps) {
 
   return (
     <div className="app-shell">
-      <AppNavigation activeTab={tab} onNavigate={setTab} onLogout={signOut} />
+      <AppNavigation
+        activeTab={tab}
+        userName={api.session.name}
+        userEmail={api.session.email}
+        onNavigate={setTab}
+        onLogout={signOut}
+      />
 
       <main className="content">
         <PageHeader
           title={currentPage.label}
-          description={currentPage.description}
+          description={pageDescription}
           onLogout={signOut}
         />
 

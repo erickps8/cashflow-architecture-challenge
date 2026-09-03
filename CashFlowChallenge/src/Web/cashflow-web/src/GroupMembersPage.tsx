@@ -49,7 +49,7 @@ export default function GroupMembersPage() {
   const decide = (id: string, approve: boolean) => run(() => api.decideGroupMember(id, approve));
 
   const remove = (member: GroupMember) => {
-    if (!confirm(`Remover ${member.username || member.email} do grupo?`)) return;
+    if (!confirm(`Remover ${member.name || member.email} do grupo?`)) return;
     void run(() => api.removeGroupMember(member.id));
   };
 
@@ -101,7 +101,7 @@ export default function GroupMembersPage() {
           <div className="modern-row" key={member.id}>
             <div className="modern-row-icon"><Users /></div>
             <div>
-              <strong>{member.username || member.email}</strong>
+              <strong>{member.name || member.email}</strong>
               <span>{member.email} · {memberStatus(member)}</span>
             </div>
 
