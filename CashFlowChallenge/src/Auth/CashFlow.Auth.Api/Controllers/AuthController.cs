@@ -67,7 +67,7 @@ public class AuthController : ControllerBase
             return Ok(State(
                 user,
                 membership,
-                membership.Status == GroupMemberStatus.Active ? Token(user, membership) : null,
+                membership.Status == GroupMemberStatus.Active ? Token(user, membership) : PendingToken(user),
                 request.Username.Trim()));
         }
         catch
@@ -178,7 +178,55 @@ public class AuthController : ControllerBase
         return Ok(State(
             user,
             membership,
-            membership.Status == GroupMemberStatus.Active ? Token(user, membership) : null));
+            membership.Status == GroupMemberStatus.Active ? Token(user, membership) : PendingToken(user)));
+    }
+
+    [Authorize]
+    [HttpDelete("group/request")]
+    public async Task<IActionResult> CancelPendingRequest()
+    {
+        var user = await CurrentUser();
+        if (user is null) return Unauthorized();
+
+        var pending = await _db.GroupMemberships
+            .FirstOrDefaultAsync(x => x.UserId == user.Id && x.Status == GroupMemberStatus.Pending);
+        if (pending is null) return NotFound("Nenhuma solicitação pendente encontrada.");
+
+        _db.GroupMemberships.Remove(pending);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpGet("group")]
+    public async Task<IActionResult> Group()
+    {
+        var membership = await CurrentMembership();
+        if (membership is null || membership.Status != GroupMemberStatus.Active) return Forbid();
+
+        var group = await _db.Groups.AsNoTracking().FirstAsync(x => x.Id == membership.GroupId);
+        return Ok(new { id = group.Id, name = group.Name, role = membership.Role.ToString() });
+    }
+
+    [Authorize]
+    [HttpPut("group")]
+    public async Task<IActionResult> RenameGroup(GroupChoiceRequest request)
+    {
+        var membership = await CurrentMembership();
+        if (membership is null || membership.Role != GroupMemberRole.Owner || membership.Status != GroupMemberStatus.Active)
+            return Forbid();
+
+        var normalizedName = Normalize(request.GroupName);
+        if (string.IsNullOrWhiteSpace(normalizedName)) return BadRequest("Informe o nome do grupo.");
+
+        var duplicated = await _db.Groups.AnyAsync(x => x.Id != membership.GroupId && x.NormalizedName == normalizedName);
+        if (duplicated) return Conflict("Já existe um grupo com esse nome.");
+
+        var group = await _db.Groups.FirstAsync(x => x.Id == membership.GroupId);
+        group.Name = request.GroupName.Trim();
+        group.NormalizedName = normalizedName;
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     [Authorize]
@@ -186,7 +234,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Members()
     {
         var currentMembership = await CurrentMembership();
-        if (currentMembership is null) return Forbid();
+        if (currentMembership is null || currentMembership.Status != GroupMemberStatus.Active) return Forbid();
 
         var memberships = await _db.GroupMemberships
             .Where(x => x.GroupId == currentMembership.GroupId)
@@ -230,6 +278,26 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    [Authorize]
+    [HttpDelete("group/members/{id:guid}")]
+    public async Task<IActionResult> RemoveMember(Guid id)
+    {
+        var currentMembership = await CurrentMembership();
+        if (currentMembership is null
+            || currentMembership.Role != GroupMemberRole.Owner
+            || currentMembership.Status != GroupMemberStatus.Active)
+            return Forbid();
+
+        var target = await _db.GroupMemberships
+            .FirstOrDefaultAsync(x => x.Id == id && x.GroupId == currentMembership.GroupId);
+        if (target is null) return NotFound();
+        if (target.Role == GroupMemberRole.Owner) return BadRequest("O gestor do grupo não pode ser removido.");
+
+        _db.GroupMemberships.Remove(target);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     private async Task<object> BuildLogin(IdentityUser user)
     {
         var membership = await _db.GroupMemberships.Include(x => x.Group)
@@ -243,7 +311,7 @@ public class AuthController : ControllerBase
             membership,
             membership?.Status == GroupMemberStatus.Active
                 ? Token(user, membership)
-                : membership is null ? Token(user, null) : null);
+                : membership?.Status == GroupMemberStatus.Pending ? PendingToken(user) : Token(user, null));
     }
 
     private object State(IdentityUser user, GroupMembership? membership, string? token, string? displayName = null) => new
@@ -349,12 +417,7 @@ public class AuthController : ControllerBase
 
     private string Token(IdentityUser user, GroupMembership? membership)
     {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.UserName!),
-            new(ClaimTypes.Email, user.Email ?? string.Empty)
-        };
+        var claims = BaseClaims(user);
 
         foreach (var role in DefaultFunctionalRoles)
             claims.Add(new Claim(ClaimTypes.Role, role));
@@ -365,12 +428,26 @@ public class AuthController : ControllerBase
             claims.Add(new Claim("group_role", membership.Role.ToString()));
         }
 
+        return WriteToken(claims, membership is null ? 1 : 8);
+    }
+
+    private string PendingToken(IdentityUser user) => WriteToken(BaseClaims(user), 1);
+
+    private List<Claim> BaseClaims(IdentityUser user) =>
+    [
+        new Claim(ClaimTypes.NameIdentifier, user.Id),
+        new Claim(ClaimTypes.Name, user.UserName!),
+        new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
+    ];
+
+    private string WriteToken(IEnumerable<Claim> claims, int hours)
+    {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var jwt = new JwtSecurityToken(
             _config["Jwt:Issuer"],
             _config["Jwt:Audience"],
             claims,
-            expires: DateTime.UtcNow.AddHours(membership is null ? 1 : 8),
+            expires: DateTime.UtcNow.AddHours(hours),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
         return new JwtSecurityTokenHandler().WriteToken(jwt);
@@ -383,7 +460,7 @@ public class AuthController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return userId is null
             ? null
-            : await _db.GroupMemberships.FirstOrDefaultAsync(x => x.UserId == userId);
+            : await _db.GroupMemberships.FirstOrDefaultAsync(x => x.UserId == userId && x.Status != GroupMemberStatus.Rejected);
     }
 
     private static string Normalize(string name) => name.Trim().ToUpperInvariant();
