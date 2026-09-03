@@ -21,8 +21,15 @@ export default function AuthPage({ done }: { done: () => void }) {
   const resetParams = new URLSearchParams(window.location.search);
   const resetEmail = resetParams.get('resetEmail') ?? '';
   const resetToken = resetParams.get('resetToken') ?? '';
+  const initialMode: AuthMode = resetEmail && resetToken
+    ? 'reset'
+    : api.session.token && api.session.state === 'pending'
+      ? 'pending'
+      : api.session.token && api.session.state === 'group'
+        ? 'group'
+        : 'login';
 
-  const [mode, setMode] = useState<AuthMode>(resetEmail && resetToken ? 'reset' : 'login');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [user, setUser] = useState('');
   const [email, setEmail] = useState(resetEmail);
   const [pass, setPass] = useState('');
@@ -171,7 +178,7 @@ export default function AuthPage({ done }: { done: () => void }) {
   return (
     <main className="login-page"><section className="login-card">
       <div className="brand-lockup"><div className="brand-mark"><WalletCards /></div><div><strong>CashFlow</strong><span>Finanças compartilhadas</span></div></div>
-      {mode !== 'login' && <div className="login-copy"><span className="eyebrow">{mode === 'forgot' || mode === 'reset' ? 'SEGURANÇA' : mode === 'register' ? 'CRIAR CONTA' : 'SEU GRUPO'}</span><h1>{title}</h1><p>{mode === 'forgot' ? 'Informe seu e-mail e enviaremos um link temporário.' : mode === 'reset' ? 'O link é temporário e só pode ser usado para redefinir sua senha.' : mode === 'group' ? 'Se ele já existir, o gestor precisará aprovar sua entrada.' : 'Acesse suas finanças com segurança.'}</p></div>}
+      {mode !== 'login' && <div className="login-copy"><span className="eyebrow">{mode === 'forgot' || mode === 'reset' ? 'SEGURANÇA' : mode === 'register' ? 'CRIAR CONTA' : 'SEU GRUPO'}</span><h1>{title}</h1><p>{mode === 'forgot' ? 'Informe seu e-mail e enviaremos um link temporário.' : mode === 'reset' ? 'O link é temporário e só pode ser usado para redefinir sua senha.' : mode === 'group' ? 'Você precisa estar em um grupo antes de acessar qualquer dado financeiro.' : 'Acesse suas finanças com segurança.'}</p></div>}
       <form onSubmit={submit}>
         {mode === 'login' && <label>E-mail ou usuário<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label>}
         {mode === 'register' && <><label>Nome<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label><label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} /></label></>}
