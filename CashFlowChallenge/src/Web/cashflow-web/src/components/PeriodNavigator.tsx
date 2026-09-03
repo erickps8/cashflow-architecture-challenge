@@ -5,6 +5,7 @@ type PeriodNavigatorProps = {
   month?: number;
   label?: string;
   mode?: 'month' | 'year';
+  compact?: boolean;
   onChange: (year: number, month: number) => void;
 };
 
@@ -29,6 +30,7 @@ export default function PeriodNavigator({
   month = 1,
   label = 'Período',
   mode = 'month',
+  compact = false,
   onChange,
 }: PeriodNavigatorProps) {
   const navigate = (delta: number) => {
@@ -42,7 +44,7 @@ export default function PeriodNavigator({
   };
 
   return (
-    <div className="period-nav">
+    <div className={`period-nav ${compact ? 'period-nav-compact' : ''}`}>
       <button type="button" onClick={() => navigate(-1)} aria-label={mode === 'year' ? 'Ano anterior' : 'Mês anterior'}>
         <ChevronLeft />
       </button>
