@@ -72,8 +72,9 @@ test('fluxo principal do CashFlow funciona ponta a ponta', async ({ page }, test
   assertNoRuntimeFailures();
 
   const logout = isMobile
-    ? page.locator('.mobile-logout').getByRole('button', { name: /sair/i })
+    ? page.locator('.mobile-logout')
     : page.locator('.sidebar').getByRole('button', { name: /sair/i });
+  await expect(logout).toBeVisible();
   await logout.click();
   await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
   await page.getByLabel('E-mail ou usuário').fill(email);
