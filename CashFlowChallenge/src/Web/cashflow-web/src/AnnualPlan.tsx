@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, PencilLine, PiggyBank, Plus, Trash2, TrendingUp, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as api from './api';
+import PeriodNavigator from './components/PeriodNavigator';
 import './annual.css';
 import './annual-editor.css';
 
@@ -9,7 +10,6 @@ const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', '
 const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const compactMoney = (value: number) => value.toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
 const numberValue = (value: string) => Number(value) || 0;
-
 type CategoryRow = { id: string; name: string; planned: number[]; actual: number[] };
 
 export default function AnnualPlan() {
@@ -31,37 +31,25 @@ export default function AnnualPlan() {
   const [creatingCategory, setCreatingCategory] = useState(false);
 
   async function load(targetYear = year) {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const [plannedProjection, monthlyBudgets, allCategories] = await Promise.all([
         api.getPlannedProjection(targetYear, 1, 12, opening),
         Promise.all(Array.from({ length: 12 }, (_, index) => api.getBudget(targetYear, index + 1).catch(() => null))),
         api.getCategories(),
       ]);
-      setProjection(plannedProjection);
-      setBudgets(monthlyBudgets);
-      setCategories(allCategories.filter((item) => item.type === 2 && item.isActive));
-      setSelectedMonth(0);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : 'Falha ao carregar planejamento');
-    } finally {
-      setLoading(false);
-    }
+      setProjection(plannedProjection); setBudgets(monthlyBudgets); setCategories(allCategories.filter((item) => item.type === 2 && item.isActive)); setSelectedMonth(0);
+    } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao carregar planejamento'); }
+    finally { setLoading(false); }
   }
-
   useEffect(() => { void load(year); }, [year]);
 
   const categoryRows = useMemo(() => {
     const map = new Map<string, CategoryRow>();
     budgets.forEach((budget, monthIndex) => budget?.categories?.forEach((category) => {
       let row = map.get(category.categoryId);
-      if (!row) {
-        row = { id: category.categoryId, name: category.categoryName, planned: Array(12).fill(0), actual: Array(12).fill(0) };
-        map.set(category.categoryId, row);
-      }
-      row.planned[monthIndex] = category.plannedAmount;
-      row.actual[monthIndex] = category.actualAmount;
+      if (!row) { row = { id: category.categoryId, name: category.categoryName, planned: Array(12).fill(0), actual: Array(12).fill(0) }; map.set(category.categoryId, row); }
+      row.planned[monthIndex] = category.plannedAmount; row.actual[monthIndex] = category.actualAmount;
     }));
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }, [budgets]);
@@ -72,143 +60,31 @@ export default function AnnualPlan() {
     const expense = projection?.totalExpenseAmount ?? projectedMonths.reduce((total, item) => total + item.totalExpenseAmount, 0);
     const result = projection?.netAmount ?? income - expense;
     const lowest = projectedMonths.length ? projectedMonths.reduce((a, b) => b.closingBalance < a.closingBalance ? b : a) : null;
-    return {
-      income,
-      expense,
-      result,
-      lowest,
-      negative: projectedMonths.filter((item) => item.isNegative),
-      belowReserve: projectedMonths.filter((item) => item.closingBalance < reserve),
-      manualPlanned: projectedMonths.reduce((total, item) => total + item.plannedExpenseAmount, 0),
-      final: projection?.finalBalance ?? opening,
-    };
+    return { income, expense, result, lowest, negative: projectedMonths.filter((item) => item.isNegative), belowReserve: projectedMonths.filter((item) => item.closingBalance < reserve), final: projection?.finalBalance ?? opening };
   }, [projection, opening, reserve]);
 
-  const chartData = useMemo(() => (projection?.months ?? []).map((item) => ({
-    month: months[item.month - 1],
-    receitas: Math.max(0, item.totalIncomeAmount),
-    despesas: Math.max(0, item.totalExpenseAmount),
-    saldo: item.closingBalance,
-    reserva: reserve,
-  })), [projection, reserve]);
-
-  const month = projection?.months[selectedMonth];
-  const budget = budgets[selectedMonth];
-  const planned = budget?.plannedAmount ?? 0;
-  const availableAboveReserve = month ? month.closingBalance - reserve : 0;
-
+  const chartData = useMemo(() => (projection?.months ?? []).map((item) => ({ month: months[item.month - 1], receitas: Math.max(0, item.totalIncomeAmount), despesas: Math.max(0, item.totalExpenseAmount), saldo: item.closingBalance, reserva: reserve })), [projection, reserve]);
+  const month = projection?.months[selectedMonth]; const budget = budgets[selectedMonth]; const planned = budget?.plannedAmount ?? 0; const availableAboveReserve = month ? month.closingBalance - reserve : 0;
   function openNew() { setEditorCategory(''); setEditorValues(Array(12).fill(0)); setNewCategory(''); setEditorOpen(true); }
   function openRow(row: CategoryRow) { setEditorCategory(row.id); setEditorValues([...row.planned]); setNewCategory(''); setEditorOpen(true); }
   function repeat(value: number) { setEditorValues(Array(12).fill(value)); }
-
-  async function createExpenseCategory() {
-    const name = newCategory.trim();
-    if (!name) return;
-    setCreatingCategory(true);
-    setError('');
-    try {
-      const created = await api.createCategory({ name, type: 2 });
-      setCategories((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
-      setEditorCategory(created.id);
-      setNewCategory('');
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : 'Falha ao criar categoria');
-    } finally { setCreatingCategory(false); }
-  }
-
-  async function savePlan(event: FormEvent) {
-    event.preventDefault();
-    if (!editorCategory) return;
-    setSaving(true);
-    setError('');
-    try {
-      await Promise.all(editorValues.map((value, index) => api.setBudget({ year, month: index + 1, categoryId: editorCategory, plannedAmount: value })));
-      setEditorOpen(false);
-      await load(year);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : 'Falha ao salvar planejamento');
-    } finally { setSaving(false); }
-  }
-
-  async function removeCurrent() {
-    if (!editorCategory || !confirm('Remover este planejamento? Os lançamentos reais não serão apagados.')) return;
-    setSaving(true);
-    try {
-      await api.removeAnnualBudgetCategory(year, editorCategory);
-      setEditorOpen(false);
-      await load(year);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : 'Falha ao remover planejamento');
-    } finally { setSaving(false); }
-  }
-
-  async function clearYear() {
-    if (!categoryRows.length || !confirm(`Remover todos os ajustes manuais de ${year}? Lançamentos, recorrências e cartões continuam intactos.`)) return;
-    setLoading(true);
-    try { await api.clearAnnualBudget(year); await load(year); }
-    catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao limpar planejamento'); }
-    finally { setLoading(false); }
-  }
+  async function createExpenseCategory() { const name = newCategory.trim(); if (!name) return; setCreatingCategory(true); setError(''); try { const created = await api.createCategory({ name, type: 2 }); setCategories((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))); setEditorCategory(created.id); setNewCategory(''); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao criar categoria'); } finally { setCreatingCategory(false); } }
+  async function savePlan(event: FormEvent) { event.preventDefault(); if (!editorCategory) return; setSaving(true); setError(''); try { await Promise.all(editorValues.map((value, index) => api.setBudget({ year, month: index + 1, categoryId: editorCategory, plannedAmount: value }))); setEditorOpen(false); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao salvar planejamento'); } finally { setSaving(false); } }
+  async function removeCurrent() { if (!editorCategory || !confirm('Remover este planejamento? Os lançamentos reais não serão apagados.')) return; setSaving(true); try { await api.removeAnnualBudgetCategory(year, editorCategory); setEditorOpen(false); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao remover planejamento'); } finally { setSaving(false); } }
+  async function clearYear() { if (!categoryRows.length || !confirm(`Remover todos os ajustes manuais de ${year}? Lançamentos, recorrências e cartões continuam intactos.`)) return; setLoading(true); try { await api.clearAnnualBudget(year); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao limpar planejamento'); } finally { setLoading(false); } }
 
   return <section className="annual-plan">
-    <div className="annual-hero annual-hero-simple">
-      <div className="annual-heading">
-        <span className="section-kicker">VISÃO DO ANO</span>
-        <h2>Como seu {year} está projetado hoje</h2>
-        <p>O CashFlow calcula automaticamente usando lançamentos, recorrências, cartões e ajustes futuros já cadastrados.</p>
-      </div>
-      <div className="annual-year-switch">
-        <button onClick={() => setYear((value) => value - 1)} aria-label="Ano anterior"><ChevronLeft size={18} /></button>
-        <strong>{year}</strong>
-        <button onClick={() => setYear((value) => value + 1)} aria-label="Próximo ano"><ChevronRight size={18} /></button>
-        {loading && <span>Atualizando...</span>}
-      </div>
-    </div>
-
+    <div className="annual-hero annual-hero-simple"><div className="annual-heading"><span className="section-kicker">VISÃO DO ANO</span><h2>Como seu {year} está projetado hoje</h2><p>O CashFlow calcula automaticamente usando lançamentos, recorrências, cartões e ajustes futuros já cadastrados.</p></div></div>
+    <PeriodNavigator year={year} label="Ano" mode="year" onChange={(nextYear) => setYear(nextYear)} />
+    {loading && <div className="annual-loading">Atualizando projeção...</div>}
     {error && <div className="error">{error}</div>}
-
-    <div className="annual-summary">
-      <div><span>Receitas previstas</span><strong>{money(summary.income)}</strong><small>Entradas conhecidas no ano</small></div>
-      <div><span>Despesas previstas</span><strong>{money(summary.expense)}</strong><small>Compromissos + ajustes futuros</small></div>
-      <div><span>Sobra do ano</span><strong className={summary.result < 0 ? 'negative-text' : 'positive-text'}>{money(summary.result)}</strong><small>Receitas menos despesas</small></div>
-      <div><span>Saldo no fim do ano</span><strong className={summary.final < reserve ? 'negative-text' : 'positive-text'}>{money(summary.final)}</strong><small>Reserva desejada: {money(reserve)}</small></div>
-    </div>
-
-    <div className={`annual-health ${summary.negative.length || summary.belowReserve.length ? 'annual-health-bad' : 'annual-health-good'}`}>
-      <div className="health-icon">{summary.negative.length || summary.belowReserve.length ? <AlertTriangle /> : <TrendingUp />}</div>
-      <div><strong>{summary.negative.length ? `${summary.negative.length} mês(es) terminam negativos` : summary.belowReserve.length ? `${summary.belowReserve.length} mês(es) ficam abaixo da reserva` : 'Seu ano está sustentável com os dados atuais'}</strong><span>{summary.negative.length ? `Primeiro mês negativo: ${months[(summary.negative[0]?.month ?? 1) - 1]}.` : summary.belowReserve.length ? `Primeiro mês abaixo da reserva: ${months[(summary.belowReserve[0]?.month ?? 1) - 1]}.` : `Nenhum mês invade a reserva mínima de ${money(reserve)}.`}</span></div>
-      {summary.lowest && <div className="health-low"><span>Pior saldo</span><strong>{months[summary.lowest.month - 1]} · {money(summary.lowest.closingBalance)}</strong></div>}
-    </div>
-
-    <section className="annual-charts-grid">
-      <article className="panel annual-chart-card">
-        <div className="panel-title"><div><span className="section-kicker">FLUXO DO ANO</span><h2>Receitas x despesas</h2><p>Comparação mensal das entradas e saídas.</p></div></div>
-        <div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Bar dataKey="receitas" name="Receitas" fill="#16a34a" radius={[5, 5, 0, 0]} /><Bar dataKey="despesas" name="Despesas" fill="#dc2626" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div>
-      </article>
-      <article className="panel annual-chart-card">
-        <div className="panel-title"><div><span className="section-kicker">SEGURANÇA</span><h2>Evolução do saldo</h2><p>Saldo projetado comparado à reserva mínima.</p></div></div>
-        <div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Line type="linear" dataKey="saldo" name="Saldo projetado" stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} /><Line type="linear" dataKey="reserva" name="Reserva mínima" stroke="#f59e0b" strokeDasharray="6 4" dot={false} /></ComposedChart></ResponsiveContainer></div>
-      </article>
-    </section>
-
-    <article className="panel annual-timeline-panel">
-      <div className="panel-title annual-plan-title"><div><span className="section-kicker">MÊS A MÊS</span><h2>Saldo projetado</h2><p>Clique em um mês para entender o resultado.</p></div><button className="annual-plan-add" onClick={openNew}><Plus size={17} /> Adicionar ajuste futuro</button></div>
-      <div className="annual-month-strip">{projection?.months.map((item, index) => <button key={`${item.year}-${item.month}`} className={`${selectedMonth === index ? 'active' : ''} ${item.isNegative ? 'negative' : ''} ${item.closingBalance < reserve ? 'below-reserve' : ''}`} onClick={() => setSelectedMonth(index)}><span>{months[index]}</span><strong>{money(item.closingBalance)}</strong><small>{item.netAmount < 0 ? 'Déficit' : 'Sobra'} {money(Math.abs(item.netAmount))}</small></button>)}</div>
-    </article>
-
-    {month && <section className="annual-detail-grid">
-      <article className="panel annual-month-card"><div className="month-card-top"><button className="month-arrow" onClick={() => setSelectedMonth(Math.max(0, selectedMonth - 1))} disabled={selectedMonth === 0}><ChevronLeft /></button><div><span className="section-kicker">DETALHE DO MÊS</span><h2>{months[selectedMonth]} {year}</h2><p>O que entra, o que sai e onde seu saldo termina.</p></div><button className="month-arrow" onClick={() => setSelectedMonth(Math.min(11, selectedMonth + 1))} disabled={selectedMonth === 11}><ChevronRight /></button></div><div className="month-flow"><div><span>Saldo abertura</span><strong>{money(month.openingBalance)}</strong></div><div className="income"><span>+ Receitas</span><strong>{money(month.totalIncomeAmount)}</strong></div><div className="expense"><span>− Saídas</span><strong>{money(month.totalExpenseAmount)}</strong></div><div className="month-result"><span>Saldo fechamento</span><strong className={month.isNegative ? 'negative-text' : 'positive-text'}>{money(month.closingBalance)}</strong></div></div></article>
-      <article className="panel annual-explain-card"><div className="panel-title"><div><span className="section-kicker">COMPOSIÇÃO</span><h2>O que pesa neste mês</h2></div></div><div className="annual-breakdown"><div><span>Receitas avulsas</span><strong>{money(month.incomeAmount)}</strong></div><div><span>Receitas recorrentes</span><strong>{money(month.recurringIncomeAmount)}</strong></div><div><span>Despesas avulsas</span><strong>{money(month.directExpenseAmount)}</strong></div><div><span>Despesas recorrentes</span><strong>{money(month.recurringExpenseAmount)}</strong></div><div><span>Cartões e parcelas</span><strong>{money(month.creditCardAmount)}</strong></div>{month.plannedExpenseAmount > 0 && <div className="planned-gap"><span>Ajustes futuros manuais</span><strong>{money(month.plannedExpenseAmount)}</strong></div>}</div></article>
-      <article className="panel annual-control-card"><div className="panel-title"><div><span className="section-kicker">MARGEM</span><h2>Quanto ainda está livre</h2></div><PiggyBank /></div><div className="control-highlight"><span>Acima da reserva mínima</span><strong className={availableAboveReserve < 0 ? 'negative-text' : 'positive-text'}>{money(availableAboveReserve)}</strong><small>{availableAboveReserve < 0 ? 'Este mês invade sua reserva mínima.' : 'Espaço de caixa após preservar a reserva.'}</small></div><div className="annual-breakdown compact"><div><span>Reserva mínima</span><strong>{money(reserve)}</strong></div><div><span>Ajustes manuais no mês</span><strong>{money(planned)}</strong></div><div><span>Realizado nessas categorias</span><strong>{money(budget?.actualAmount ?? 0)}</strong></div></div></article>
-    </section>}
-
-    <article className="panel annual-adjustments-panel">
-      <div className="panel-title annual-plan-title"><div><span className="section-kicker">OPCIONAL</span><h2>Ajustes que o CashFlow ainda não conhece</h2><p>Use só para simular algo que ainda não virou lançamento, recorrência ou parcela.</p></div><div className="annual-plan-actions">{categoryRows.length > 0 && <button className="annual-plan-danger" onClick={() => void clearYear()} disabled={loading}><Trash2 size={16} /> Limpar ajustes</button>}<button className="annual-plan-add" onClick={openNew}><Plus size={17} /> Adicionar ajuste</button></div></div>
-      {categoryRows.length ? <div className="annual-adjustment-list">{categoryRows.map((row) => { const yearPlanned = row.planned.reduce((total, value) => total + value, 0); const yearActual = row.actual.reduce((total, value) => total + value, 0); const activeMonths = row.planned.map((value, index) => value > 0 ? months[index] : null).filter(Boolean); return <button key={row.id} className="annual-adjustment-row" onClick={() => openRow(row)}><div className="annual-adjustment-icon"><PencilLine size={17} /></div><div><strong>{row.name}</strong><span>{activeMonths.length ? activeMonths.join(', ') : 'Sem valor planejado'} · realizado {money(yearActual)}</span></div><strong>{money(yearPlanned)}</strong></button>; })}</div> : <div className="annual-empty annual-empty-passive"><strong>Nenhum ajuste manual — e tudo bem.</strong><span>A projeção acima já funciona com os dados reais do CashFlow.</span></div>}
-    </article>
-
-    <div className="annual-help"><CalendarDays size={18} /><p><strong>Regra simples:</strong> se o compromisso já existe em lançamentos, recorrências ou cartões, não coloque aqui de novo.</p></div>
-
+    <div className="annual-summary"><div><span>Receitas previstas</span><strong>{money(summary.income)}</strong><small>Entradas conhecidas no ano</small></div><div><span>Despesas previstas</span><strong>{money(summary.expense)}</strong><small>Compromissos + ajustes futuros</small></div><div><span>Sobra do ano</span><strong className={summary.result < 0 ? 'negative-text' : 'positive-text'}>{money(summary.result)}</strong><small>Receitas menos despesas</small></div><div><span>Saldo no fim do ano</span><strong className={summary.final < reserve ? 'negative-text' : 'positive-text'}>{money(summary.final)}</strong><small>Reserva desejada: {money(reserve)}</small></div></div>
+    <div className={`annual-health ${summary.negative.length || summary.belowReserve.length ? 'annual-health-bad' : 'annual-health-good'}`}><div className="health-icon">{summary.negative.length || summary.belowReserve.length ? <AlertTriangle /> : <TrendingUp />}</div><div><strong>{summary.negative.length ? `${summary.negative.length} mês(es) terminam negativos` : summary.belowReserve.length ? `${summary.belowReserve.length} mês(es) ficam abaixo da reserva` : 'Seu ano está sustentável com os dados atuais'}</strong><span>{summary.negative.length ? `Primeiro mês negativo: ${months[(summary.negative[0]?.month ?? 1) - 1]}.` : summary.belowReserve.length ? `Primeiro mês abaixo da reserva: ${months[(summary.belowReserve[0]?.month ?? 1) - 1]}.` : `Nenhum mês invade a reserva mínima de ${money(reserve)}.`}</span></div>{summary.lowest && <div className="health-low"><span>Pior saldo</span><strong>{months[summary.lowest.month - 1]} · {money(summary.lowest.closingBalance)}</strong></div>}</div>
+    <section className="annual-charts-grid"><article className="panel annual-chart-card"><div className="panel-title"><div><span className="section-kicker">FLUXO DO ANO</span><h2>Receitas x despesas</h2><p>Comparação mensal das entradas e saídas.</p></div></div><div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" interval={0} minTickGap={0} tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Bar dataKey="receitas" name="Receitas" fill="#16a34a" radius={[5, 5, 0, 0]} /><Bar dataKey="despesas" name="Despesas" fill="#dc2626" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></article><article className="panel annual-chart-card"><div className="panel-title"><div><span className="section-kicker">SEGURANÇA</span><h2>Evolução do saldo</h2><p>Saldo projetado comparado à reserva mínima.</p></div></div><div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" interval={0} minTickGap={0} tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Line type="linear" dataKey="saldo" name="Saldo projetado" stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} /><Line type="linear" dataKey="reserva" name="Reserva mínima" stroke="#f59e0b" strokeDasharray="6 4" dot={false} /></ComposedChart></ResponsiveContainer></div></article></section>
+    <article className="panel annual-timeline-panel"><div className="panel-title annual-plan-title"><div><span className="section-kicker">MÊS A MÊS</span><h2>Saldo projetado</h2><p>Clique em um mês para entender o resultado.</p></div><button className="annual-plan-add" onClick={openNew}><Plus size={17} /> Adicionar ajuste futuro</button></div><div className="annual-month-strip">{projection?.months.map((item, index) => <button key={`${item.year}-${item.month}`} className={`${selectedMonth === index ? 'active' : ''} ${item.isNegative ? 'negative' : ''} ${item.closingBalance < reserve ? 'below-reserve' : ''}`} onClick={() => setSelectedMonth(index)}><span>{months[index]}</span><strong>{money(item.closingBalance)}</strong><small>{item.netAmount < 0 ? 'Déficit' : 'Sobra'} {money(Math.abs(item.netAmount))}</small></button>)}</div></article>
+    {month && <section className="annual-detail-grid"><article className="panel annual-month-card"><div className="month-card-top"><button className="month-arrow" onClick={() => setSelectedMonth(Math.max(0, selectedMonth - 1))} disabled={selectedMonth === 0}><ChevronLeft /></button><div><span className="section-kicker">DETALHE DO MÊS</span><h2>{months[selectedMonth]} {year}</h2><p>O que entra, o que sai e onde seu saldo termina.</p></div><button className="month-arrow" onClick={() => setSelectedMonth(Math.min(11, selectedMonth + 1))} disabled={selectedMonth === 11}><ChevronRight /></button></div><div className="month-flow"><div><span>Saldo abertura</span><strong>{money(month.openingBalance)}</strong></div><div className="income"><span>+ Receitas</span><strong>{money(month.totalIncomeAmount)}</strong></div><div className="expense"><span>− Saídas</span><strong>{money(month.totalExpenseAmount)}</strong></div><div className="month-result"><span>Saldo fechamento</span><strong className={month.isNegative ? 'negative-text' : 'positive-text'}>{money(month.closingBalance)}</strong></div></div></article><article className="panel annual-explain-card"><div className="panel-title"><div><span className="section-kicker">COMPOSIÇÃO</span><h2>O que pesa neste mês</h2></div></div><div className="annual-breakdown"><div><span>Receitas avulsas</span><strong>{money(month.incomeAmount)}</strong></div><div><span>Receitas recorrentes</span><strong>{money(month.recurringIncomeAmount)}</strong></div><div><span>Despesas avulsas</span><strong>{money(month.directExpenseAmount)}</strong></div><div><span>Despesas recorrentes</span><strong>{money(month.recurringExpenseAmount)}</strong></div><div><span>Cartões e parcelas</span><strong>{money(month.creditCardAmount)}</strong></div>{month.plannedExpenseAmount > 0 && <div><span>Ajustes futuros manuais</span><strong>{money(month.plannedExpenseAmount)}</strong></div>}</div></article><article className="panel annual-control-card"><div className="panel-title"><div><span className="section-kicker">MARGEM</span><h2>Quanto ainda está livre</h2></div><PiggyBank /></div><div className="control-highlight"><span>Acima da reserva mínima</span><strong className={availableAboveReserve < 0 ? 'negative-text' : 'positive-text'}>{money(availableAboveReserve)}</strong><small>{availableAboveReserve < 0 ? 'Este mês invade sua reserva mínima.' : 'Espaço de caixa depois de preservar a reserva.'}</small></div><div className="annual-breakdown compact"><div><span>Reserva mínima</span><strong>{money(reserve)}</strong></div><div><span>Ajustes manuais no mês</span><strong>{money(planned)}</strong></div><div><span>Realizado nessas categorias</span><strong>{money(budget?.actualAmount ?? 0)}</strong></div></div></article></section>}
+    <article className="panel annual-adjustments-panel"><div className="panel-title annual-plan-title"><div><span className="section-kicker">OPCIONAL</span><h2>Ajustes que o CashFlow ainda não conhece</h2><p>Use só para decisões futuras que ainda não viraram lançamento, recorrência ou compra parcelada.</p></div><div className="annual-plan-actions">{categoryRows.length > 0 && <button className="annual-plan-danger" onClick={() => void clearYear()} disabled={loading}><Trash2 size={16} /> Limpar ajustes</button>}<button className="annual-plan-add" onClick={openNew}><Plus size={17} /> Adicionar ajuste</button></div></div>{categoryRows.length ? <div className="annual-adjustment-list">{categoryRows.map((row) => { const yearPlanned = row.planned.reduce((total, value) => total + value, 0); const yearActual = row.actual.reduce((total, value) => total + value, 0); const activeMonths = row.planned.map((value, index) => value > 0 ? months[index] : null).filter(Boolean); return <button key={row.id} className="annual-adjustment-row" onClick={() => openRow(row)}><div className="annual-adjustment-icon"><PencilLine size={17} /></div><div><strong>{row.name}</strong><span>{activeMonths.length ? activeMonths.join(', ') : 'Sem valor planejado'} · realizado {money(yearActual)}</span></div><strong>{money(yearPlanned)}</strong></button>; })}</div> : <div className="annual-empty annual-empty-passive"><strong>Nenhum ajuste manual — e tudo bem.</strong><span>A projeção acima já funciona usando os dados reais do CashFlow.</span></div>}</article>
+    <div className="annual-help"><CalendarDays size={18} /><p><strong>Regra simples:</strong> se o compromisso já foi cadastrado em lançamentos, recorrências ou cartões, não coloque aqui de novo.</p></div>
     {editorOpen && <div className="modern-modal-backdrop"><section className="modern-modal annual-editor"><div className="modern-modal-head"><div><span className="section-kicker">AJUSTE FUTURO · {year}</span><h2>Simular algo que ainda não existe</h2><p>Isso entra na projeção, mas não cria um lançamento real.</p></div><button onClick={() => setEditorOpen(false)}><X /></button></div><form className="modern-form" onSubmit={savePlan}><label>Categoria<select value={editorCategory} onChange={(event) => { const id = event.target.value; setEditorCategory(id); const row = categoryRows.find((item) => item.id === id); setEditorValues(row ? [...row.planned] : Array(12).fill(0)); }} required><option value="">Escolha uma categoria de despesa</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><div className="annual-new-category"><input value={newCategory} maxLength={80} onChange={(event) => setNewCategory(event.target.value)} placeholder="Nova categoria, ex.: Viagem" /><button type="button" onClick={() => void createExpenseCategory()} disabled={creatingCategory || !newCategory.trim()}><Plus size={16} /> {creatingCategory ? 'Criando...' : 'Criar e usar'}</button></div><div className="annual-editor-tools"><span>Mesmo valor todos os meses:</span><input type="number" min="0" step="0.01" placeholder="R$ 0,00" onBlur={(event) => repeat(Number(event.target.value) || 0)} /></div><div className="annual-month-inputs">{months.map((label, index) => <label key={label}>{label}<input type="number" min="0" step="0.01" value={editorValues[index] || ''} placeholder="0,00" onChange={(event) => setEditorValues((values) => values.map((value, itemIndex) => itemIndex === index ? Number(event.target.value) || 0 : value))} /></label>)}</div><div className="annual-editor-total"><span>Total deste ajuste</span><strong>{money(editorValues.reduce((total, value) => total + value, 0))}</strong></div><div className="modern-modal-actions">{categoryRows.some((row) => row.id === editorCategory) && <button type="button" className="danger-button" onClick={() => void removeCurrent()} disabled={saving}><Trash2 size={16} /> Remover ajuste</button>}<button type="button" onClick={() => setEditorOpen(false)} disabled={saving}>Cancelar</button><button className="primary-button" disabled={saving || !editorCategory}>{saving ? 'Salvando...' : 'Aplicar na projeção'}</button></div></form></section></div>}
   </section>;
 }
