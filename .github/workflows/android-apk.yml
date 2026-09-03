@@ -1,13 +1,16 @@
 name: Android APK
 
 on:
+  pull_request:
+    branches:
+      - develop
   push:
     branches:
-      - feature/android-capacitor
+      - develop
   workflow_dispatch:
 
 jobs:
-  test-backend:
+  validate-backend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,16 +24,81 @@ jobs:
       - name: Restore
         run: dotnet restore CashFlowChallenge/CashFlowChallenge.sln
 
-      - name: Test
+      - name: Test backend
         run: dotnet test CashFlowChallenge/CashFlowChallenge.sln --configuration Release --no-restore
 
-  build-apk:
-    needs: test-backend
+  validate-web-functional:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: CashFlowChallenge/src/Web/cashflow-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web
+        run: npm run build
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Start full CashFlow stack
+        working-directory: CashFlowChallenge
+        run: docker compose up -d --build
+
+      - name: Wait for web and APIs
+        working-directory: CashFlowChallenge
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs --tail 150
+          exit 1
+
+      - name: Functional tests desktop and mobile
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+        run: npm run test:e2e
+
+      - name: Upload test evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            CashFlowChallenge/src/Web/cashflow-web/playwright-report
+            CashFlowChallenge/src/Web/cashflow-web/test-results
+          if-no-files-found: ignore
+
+      - name: Stack logs on failure
+        if: failure()
+        working-directory: CashFlowChallenge
+        run: docker compose logs --tail 200
+
+      - name: Stop test stack
+        if: always()
+        working-directory: CashFlowChallenge
+        run: docker compose down -v
+
+  validate-android-parity-and-build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: [validate-backend, validate-web-functional]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: CashFlowChallenge/src/Web/cashflow-web
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,14 +117,19 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build web
+      - name: Build exact web bundle
         run: npm run build
 
       - name: Create Android project
         run: npx cap add android
 
-      - name: Sync Android
+      - name: Sync exact web bundle into Android
         run: npx cap sync android
+
+      - name: Verify APK web assets are identical to mobile web build
+        run: |
+          test -d android/app/src/main/assets/public
+          diff -qr dist android/app/src/main/assets/public
 
       - name: Build debug APK
         working-directory: CashFlowChallenge/src/Web/cashflow-web/android

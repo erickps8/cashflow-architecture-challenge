@@ -2,7 +2,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CreditCard,
-  ReceiptText,
   Repeat2,
   ShoppingBag,
   type LucideIcon,
@@ -14,8 +13,7 @@ export type CreateAction =
   | 'income'
   | 'recurring'
   | 'card'
-  | 'purchase'
-  | 'budget';
+  | 'purchase';
 
 export type StandardCreateAction = Exclude<CreateAction, 'card'>;
 
@@ -34,14 +32,13 @@ export type CreateActionItem = {
 export const createActions: CreateActionItem[] = [
   { id: 'expense', label: 'Despesa', target: 'entries', icon: ArrowDownCircle },
   { id: 'income', label: 'Receita', target: 'entries', icon: ArrowUpCircle },
-  { id: 'recurring', label: 'Recorrência', target: 'recurring', icon: Repeat2 },
+  { id: 'recurring', label: 'Recorrência', target: 'entries', icon: Repeat2 },
   { id: 'card', label: 'Novo cartão', target: 'cards', icon: CreditCard },
   { id: 'purchase', label: 'Compra no cartão', target: 'cards', icon: ShoppingBag },
-  { id: 'budget', label: 'Limite de orçamento', target: 'budget', icon: ReceiptText },
 ];
 
 export function getCreateTarget(action: CreateAction): TabId {
-  return createActions.find((item) => item.id === action)?.target ?? 'balance';
+  return createActions.find((item) => item.id === action)?.target ?? 'dash';
 }
 
 export function toStandardCreateRequest(

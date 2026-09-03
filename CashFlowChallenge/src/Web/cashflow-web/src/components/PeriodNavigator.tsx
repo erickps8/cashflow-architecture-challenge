@@ -2,8 +2,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type PeriodNavigatorProps = {
   year: number;
-  month: number;
+  month?: number;
   label?: string;
+  mode?: 'month' | 'year';
+  compact?: boolean;
   onChange: (year: number, month: number) => void;
 };
 
@@ -25,27 +27,34 @@ function formatPeriod(year: number, month: number) {
 
 export default function PeriodNavigator({
   year,
-  month,
+  month = 1,
   label = 'Período',
+  mode = 'month',
+  compact = false,
   onChange,
 }: PeriodNavigatorProps) {
   const navigate = (delta: number) => {
+    if (mode === 'year') {
+      onChange(year + delta, month);
+      return;
+    }
+
     const nextPeriod = moveMonth(year, month, delta);
     onChange(nextPeriod.year, nextPeriod.month);
   };
 
   return (
-    <div className="period-nav">
-      <button type="button" onClick={() => navigate(-1)} aria-label="Mês anterior">
+    <div className={`period-nav ${compact ? 'period-nav-compact' : ''}`}>
+      <button type="button" onClick={() => navigate(-1)} aria-label={mode === 'year' ? 'Ano anterior' : 'Mês anterior'}>
         <ChevronLeft />
       </button>
 
       <div>
         <span>{label}</span>
-        <strong>{formatPeriod(year, month)}</strong>
+        <strong>{mode === 'year' ? year : formatPeriod(year, month)}</strong>
       </div>
 
-      <button type="button" onClick={() => navigate(1)} aria-label="Próximo mês">
+      <button type="button" onClick={() => navigate(1)} aria-label={mode === 'year' ? 'Próximo ano' : 'Próximo mês'}>
         <ChevronRight />
       </button>
     </div>

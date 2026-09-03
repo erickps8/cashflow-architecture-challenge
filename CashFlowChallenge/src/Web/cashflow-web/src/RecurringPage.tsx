@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Plus, Repeat2, Trash2, X } from 'lucide-react';
 import * as api from './api';
 import './forms-modern.css';
+import './recurring.css';
 
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -39,6 +40,13 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<api.Recurring | null>(null);
   const [form, setForm] = useState<RecurringForm>(blankForm());
+
+  const totals = useMemo(() => {
+    const active = list.filter((item) => item.isActive);
+    const income = active.filter((item) => item.type === 1).reduce((sum, item) => sum + item.amount, 0);
+    const expense = active.filter((item) => item.type === 2).reduce((sum, item) => sum + item.amount, 0);
+    return { income, expense, net: income - expense };
+  }, [list]);
 
   const load = async () => {
     const [recurring, loadedAccounts, loadedCategories] = await Promise.all([
@@ -104,6 +112,12 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
 
   return (
     <section className="modern-page">
+      <div className="recurring-summary">
+        <div><span>Receitas recorrentes</span><strong className="positive-text">{money(totals.income)}</strong></div>
+        <div><span>Despesas recorrentes</span><strong className="negative-text">{money(totals.expense)}</strong></div>
+        <div><span>Saldo recorrente</span><strong className={totals.net < 0 ? 'negative-text' : 'positive-text'}>{money(totals.net)}</strong></div>
+      </div>
+
       <article className="panel modern-list-card">
         <div className="modern-list-head">
           <div>
@@ -115,16 +129,19 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
         </div>
 
         <div className="modern-list">
-          {list.map((item) => (
-            <button type="button" className="modern-row modern-row-button" key={item.id} onClick={() => openItem(item)}>
-              <div className="modern-row-icon"><Repeat2 /></div>
-              <div>
-                <strong>{item.description}</strong>
-                <span>{item.isActive ? `Próxima: ${new Date(item.nextOccurrenceAt).toLocaleDateString('pt-BR')}` : 'Inativa'}</span>
-              </div>
-              <strong>{money(item.amount)}</strong>
-            </button>
-          ))}
+          {list.map((item) => {
+            const income = item.type === 1;
+            return (
+              <button type="button" className={`modern-row modern-row-button recurring-row ${income ? 'recurring-income' : 'recurring-expense'}`} key={item.id} onClick={() => openItem(item)}>
+                <div className="modern-row-icon"><Repeat2 /></div>
+                <div>
+                  <strong>{item.description}</strong>
+                  <span><b className="recurring-kind">{income ? 'Entrada' : 'Saída'}</b>{item.isActive ? ` · Próxima: ${new Date(item.nextOccurrenceAt).toLocaleDateString('pt-BR')}` : ' · Inativa'}</span>
+                </div>
+                <strong className="recurring-amount">{income ? '+' : '−'} {money(item.amount)}</strong>
+              </button>
+            );
+          })}
         </div>
       </article>
 

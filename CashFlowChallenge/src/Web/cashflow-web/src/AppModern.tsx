@@ -3,14 +3,12 @@ import { WalletCards } from 'lucide-react';
 import * as api from './api';
 import AnnualPlan from './AnnualPlan';
 import AuthPage from './AuthPage';
-import BudgetPage from './BudgetPage';
 import CardsPage from './CardsPage';
 import DashboardPage from './DashboardPage';
 import EntriesPage from './EntriesPage';
 import GroupMembersPage from './GroupMembersPage';
 import MonthlyBalance from './MonthlyBalance';
 import OnboardingWizard from './OnboardingWizard';
-import RecurringPage from './RecurringPage';
 import {
   getCreateTarget,
   toStandardCreateRequest,
@@ -30,7 +28,7 @@ type LogoutProps = {
 
 function AppShell({ logout }: LogoutProps) {
   const now = new Date();
-  const [tab, setTab] = useState<TabId>('balance');
+  const [tab, setTab] = useState<TabId>('dash');
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,13 +71,13 @@ function AppShell({ logout }: LogoutProps) {
         />
 
         {currentPage.hasPeriod && (
-          <PeriodNavigator year={year} month={month} onChange={changePeriod} />
+          <PeriodNavigator year={year} month={month} compact onChange={changePeriod} />
         )}
 
+        {tab === 'dash' && <DashboardPage year={year} month={month} />}
         {tab === 'balance' && (
           <MonthlyBalance year={year} month={month} onPeriodChange={changePeriod} />
         )}
-        {tab === 'dash' && <DashboardPage year={year} month={month} />}
         {tab === 'entries' && (
           <EntriesPage
             year={year}
@@ -87,16 +85,8 @@ function AppShell({ logout }: LogoutProps) {
             createRequest={standardCreateRequest}
           />
         )}
-        {tab === 'recurring' && <RecurringPage createRequest={standardCreateRequest} />}
         {tab === 'cards' && (
           <CardsPage year={year} month={month} createRequest={createRequest} />
-        )}
-        {tab === 'budget' && (
-          <BudgetPage
-            year={year}
-            month={month}
-            createRequest={standardCreateRequest}
-          />
         )}
         {tab === 'annual' && <AnnualPlan />}
         {tab === 'members' && <GroupMembersPage />}
@@ -189,7 +179,7 @@ function LoggedApp({ logout }: LogoutProps) {
 }
 
 export default function AppModern() {
-  const [logged, setLogged] = useState(Boolean(api.session.token));
+  const [logged, setLogged] = useState(Boolean(api.session.token && api.session.state === 'active'));
 
   if (!logged) {
     return <AuthPage done={() => setLogged(true)} />;

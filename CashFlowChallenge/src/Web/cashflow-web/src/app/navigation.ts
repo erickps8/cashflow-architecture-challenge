@@ -3,20 +3,16 @@ import {
   CalendarRange,
   CreditCard,
   LayoutDashboard,
-  PiggyBank,
-  Repeat2,
   Users,
   WalletCards,
   type LucideIcon,
 } from 'lucide-react';
 
 export type TabId =
-  | 'balance'
   | 'dash'
+  | 'balance'
   | 'entries'
-  | 'recurring'
   | 'cards'
-  | 'budget'
   | 'annual'
   | 'members';
 
@@ -31,14 +27,6 @@ export type NavigationItem = {
 
 export const navigationItems: NavigationItem[] = [
   {
-    id: 'balance',
-    label: 'Balanço mensal',
-    mobileLabel: 'Balanço',
-    description: 'Quanto entrou, quanto saiu e quanto sobrou.',
-    icon: WalletCards,
-    hasPeriod: false,
-  },
-  {
     id: 'dash',
     label: 'Visão geral',
     mobileLabel: 'Visão',
@@ -47,20 +35,20 @@ export const navigationItems: NavigationItem[] = [
     hasPeriod: true,
   },
   {
+    id: 'balance',
+    label: 'Balanço mensal',
+    mobileLabel: 'Balanço',
+    description: 'Quanto entrou, quanto saiu e quanto sobrou.',
+    icon: WalletCards,
+    hasPeriod: false,
+  },
+  {
     id: 'entries',
     label: 'Lançamentos',
     mobileLabel: 'Lançamentos',
-    description: 'Seu histórico financeiro, sem formulário atrapalhando.',
+    description: 'Lançamentos e recorrências em um só lugar.',
     icon: ArrowDownCircle,
     hasPeriod: true,
-  },
-  {
-    id: 'recurring',
-    label: 'Recorrências',
-    mobileLabel: 'Recorr.',
-    description: 'Compromissos que se repetem automaticamente.',
-    icon: Repeat2,
-    hasPeriod: false,
   },
   {
     id: 'cards',
@@ -68,14 +56,6 @@ export const navigationItems: NavigationItem[] = [
     mobileLabel: 'Cartões',
     description: 'Cartões, compras e faturas em um só lugar.',
     icon: CreditCard,
-    hasPeriod: true,
-  },
-  {
-    id: 'budget',
-    label: 'Orçamento',
-    mobileLabel: 'Orçamento',
-    description: 'Planeje limites e acompanhe o que ainda pode gastar.',
-    icon: PiggyBank,
     hasPeriod: true,
   },
   {

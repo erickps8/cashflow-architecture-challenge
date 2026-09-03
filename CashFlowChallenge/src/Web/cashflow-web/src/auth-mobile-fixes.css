@@ -4,6 +4,29 @@
 .auth-submit:disabled{cursor:wait;opacity:.82}
 .mobile-logout{display:none;border:1px solid var(--border);background:var(--surface);color:var(--muted);width:38px;height:38px;border-radius:11px;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex:0 0 auto}
 .mobile-logout:active{background:var(--surface-soft);color:var(--danger)}
-@media(max-width:900px){.mobile-logout{display:flex}.page-header .mobile-logout{margin-left:auto}.page-header .global-period+.mobile-logout{margin-left:0}}
+@media(max-width:900px){
+  .mobile-logout{display:flex}
+  .page-header .mobile-logout{margin-left:auto}
+  .page-header .global-period+.mobile-logout{margin-left:0}
+  .mobile-nav{
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    overflow:hidden;
+    padding-left:max(4px,env(safe-area-inset-left));
+    padding-right:max(4px,env(safe-area-inset-right));
+  }
+  .mobile-nav button{
+    min-width:0;
+    width:100%;
+    flex:none;
+    padding:3px 1px;
+  }
+  .mobile-nav button span{
+    max-width:100%;
+    overflow:hidden;
+    white-space:nowrap;
+    font-size:7px;
+  }
+}
 @media(max-width:640px){.page-header{display:flex}.page-header>div:first-child{min-width:0}.page-header .mobile-logout{width:36px;height:36px}.page-header .global-period{margin-left:auto}.page-header .global-period+.mobile-logout{margin-left:0}}
 @media(prefers-reduced-motion:reduce){.auth-submit .spin{animation-duration:1.4s}}

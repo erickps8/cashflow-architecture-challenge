@@ -21,8 +21,15 @@ export default function AuthPage({ done }: { done: () => void }) {
   const resetParams = new URLSearchParams(window.location.search);
   const resetEmail = resetParams.get('resetEmail') ?? '';
   const resetToken = resetParams.get('resetToken') ?? '';
+  const initialMode: AuthMode = resetEmail && resetToken
+    ? 'reset'
+    : api.session.token && api.session.state === 'pending'
+      ? 'pending'
+      : api.session.token && api.session.state === 'group'
+        ? 'group'
+        : 'login';
 
-  const [mode, setMode] = useState<AuthMode>(resetEmail && resetToken ? 'reset' : 'login');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [user, setUser] = useState('');
   const [email, setEmail] = useState(resetEmail);
   const [pass, setPass] = useState('');
@@ -45,7 +52,6 @@ export default function AuthPage({ done }: { done: () => void }) {
 
   async function finish(result: api.AuthResult) {
     if (result.pendingApproval) {
-      api.session.clear();
       setMode('pending');
       return;
     }
@@ -141,11 +147,28 @@ export default function AuthPage({ done }: { done: () => void }) {
     }
   }
 
+  async function cancelPendingRequest() {
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.cancelGroupRequest();
+      api.session.clear();
+      setGroup('');
+      setMessage('Solicitação cancelada. Entre novamente para escolher outro grupo.');
+      setMode('login');
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : 'Não foi possível cancelar a solicitação.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (mode === 'pending') {
     return (
       <main className="login-page"><section className="login-card">
         <div className="brand-lockup"><div className="brand-mark"><WalletCards /></div><div><strong>CashFlow</strong><span>Finanças compartilhadas</span></div></div>
-        <div className="login-copy"><span className="eyebrow">SOLICITAÇÃO ENVIADA</span><h1>Aguardando aprovação.</h1><p>O gestor do grupo precisa aceitar sua entrada. Depois disso, entre novamente.</p><button className="primary-button" onClick={() => setMode('login')}>Voltar ao login</button></div>
+        <div className="login-copy"><span className="eyebrow">SOLICITAÇÃO ENVIADA</span><h1>Aguardando aprovação.</h1><p>O gestor do grupo precisa aceitar sua entrada. Você pode aguardar ou cancelar a solicitação para escolher outro grupo.</p>{error && <div className="error">{error}</div>}<button className="primary-button" disabled={loading} onClick={() => setMode('login')}>Voltar ao login</button><button className="auth-link" disabled={loading} onClick={() => void cancelPendingRequest()}>{loading ? 'Cancelando...' : 'Cancelar solicitação'}</button></div>
       </section></main>
     );
   }
@@ -155,7 +178,7 @@ export default function AuthPage({ done }: { done: () => void }) {
   return (
     <main className="login-page"><section className="login-card">
       <div className="brand-lockup"><div className="brand-mark"><WalletCards /></div><div><strong>CashFlow</strong><span>Finanças compartilhadas</span></div></div>
-      {mode !== 'login' && <div className="login-copy"><span className="eyebrow">{mode === 'forgot' || mode === 'reset' ? 'SEGURANÇA' : mode === 'register' ? 'CRIAR CONTA' : 'SEU GRUPO'}</span><h1>{title}</h1><p>{mode === 'forgot' ? 'Informe seu e-mail e enviaremos um link temporário.' : mode === 'reset' ? 'O link é temporário e só pode ser usado para redefinir sua senha.' : mode === 'group' ? 'Se ele já existir, o gestor precisará aprovar sua entrada.' : 'Acesse suas finanças com segurança.'}</p></div>}
+      {mode !== 'login' && <div className="login-copy"><span className="eyebrow">{mode === 'forgot' || mode === 'reset' ? 'SEGURANÇA' : mode === 'register' ? 'CRIAR CONTA' : 'SEU GRUPO'}</span><h1>{title}</h1><p>{mode === 'forgot' ? 'Informe seu e-mail e enviaremos um link temporário.' : mode === 'reset' ? 'O link é temporário e só pode ser usado para redefinir sua senha.' : mode === 'group' ? 'Você precisa estar em um grupo antes de acessar qualquer dado financeiro.' : 'Acesse suas finanças com segurança.'}</p></div>}
       <form onSubmit={submit}>
         {mode === 'login' && <label>E-mail ou usuário<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label>}
         {mode === 'register' && <><label>Nome<input value={user} onChange={(e) => setUser(e.target.value)} required disabled={loading} /></label><label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} /></label></>}
