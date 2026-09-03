@@ -90,7 +90,7 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
     else if (balance && balance.closingBalance < 0) items.push({ tone: 'bad', text: `O mês está projetado para fechar ${money(Math.abs(balance.closingBalance))} no negativo.` });
     if (firstNegative) items.push({ tone: 'bad', text: `Mantendo os compromissos atuais, ${monthName(firstNegative.month)}/${firstNegative.year} fecha negativo.` });
     if (expenseChange !== null && expenseChange >= 15) items.push({ tone: 'warn', text: `Seus gastos lançados estão ${expenseChange.toFixed(0)}% maiores que no mês anterior.` });
-    if (topCategory?.change !== null && topCategory.change >= 20) items.push({ tone: 'warn', text: `${topCategory.name} subiu ${topCategory.change.toFixed(0)}% em relação ao mês anterior.` });
+    if (topCategory && topCategory.change !== null && topCategory.change >= 20) items.push({ tone: 'warn', text: `${topCategory.name} subiu ${topCategory.change.toFixed(0)}% em relação ao mês anterior.` });
     if (!items.length) items.push({ tone: 'good', text: 'Nenhum alerta financeiro relevante para este mês.' });
     return items.slice(0, 4);
   }, [canSpend, balance, firstNegative, expenseChange, topCategory]);
