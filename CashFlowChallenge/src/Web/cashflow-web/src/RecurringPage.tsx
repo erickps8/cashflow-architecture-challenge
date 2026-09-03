@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Plus, Repeat2, Trash2, X } from 'lucide-react';
 import * as api from './api';
 import './forms-modern.css';
@@ -39,6 +39,13 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<api.Recurring | null>(null);
   const [form, setForm] = useState<RecurringForm>(blankForm());
+
+  const totals = useMemo(() => {
+    const active = list.filter((item) => item.isActive);
+    const income = active.filter((item) => item.type === 1).reduce((sum, item) => sum + item.amount, 0);
+    const expense = active.filter((item) => item.type === 2).reduce((sum, item) => sum + item.amount, 0);
+    return { income, expense, net: income - expense };
+  }, [list]);
 
   const load = async () => {
     const [recurring, loadedAccounts, loadedCategories] = await Promise.all([
@@ -104,6 +111,12 @@ export default function RecurringPage({ createRequest }: { createRequest?: Creat
 
   return (
     <section className="modern-page">
+      <div className="recurring-summary">
+        <div><span>Receitas recorrentes</span><strong className="positive-text">{money(totals.income)}</strong></div>
+        <div><span>Despesas recorrentes</span><strong className="negative-text">{money(totals.expense)}</strong></div>
+        <div><span>Saldo recorrente</span><strong className={totals.net < 0 ? 'negative-text' : 'positive-text'}>{money(totals.net)}</strong></div>
+      </div>
+
       <article className="panel modern-list-card">
         <div className="modern-list-head">
           <div>
