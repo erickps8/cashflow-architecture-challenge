@@ -29,55 +29,21 @@ export default function AnnualPlan() {
   const [error, setError] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
-
-  async function load(targetYear = year) {
-    setLoading(true); setError('');
-    try {
-      const [plannedProjection, monthlyBudgets, allCategories] = await Promise.all([
-        api.getPlannedProjection(targetYear, 1, 12, opening),
-        Promise.all(Array.from({ length: 12 }, (_, index) => api.getBudget(targetYear, index + 1).catch(() => null))),
-        api.getCategories(),
-      ]);
-      setProjection(plannedProjection); setBudgets(monthlyBudgets); setCategories(allCategories.filter((item) => item.type === 2 && item.isActive)); setSelectedMonth(0);
-    } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao carregar planejamento'); }
-    finally { setLoading(false); }
-  }
+  async function load(targetYear = year) { setLoading(true); setError(''); try { const [plannedProjection, monthlyBudgets, allCategories] = await Promise.all([api.getPlannedProjection(targetYear, 1, 12, opening), Promise.all(Array.from({ length: 12 }, (_, index) => api.getBudget(targetYear, index + 1).catch(() => null))), api.getCategories()]); setProjection(plannedProjection); setBudgets(monthlyBudgets); setCategories(allCategories.filter((item) => item.type === 2 && item.isActive)); setSelectedMonth(0); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao carregar planejamento'); } finally { setLoading(false); } }
   useEffect(() => { void load(year); }, [year]);
-
-  const categoryRows = useMemo(() => {
-    const map = new Map<string, CategoryRow>();
-    budgets.forEach((budget, monthIndex) => budget?.categories?.forEach((category) => {
-      let row = map.get(category.categoryId);
-      if (!row) { row = { id: category.categoryId, name: category.categoryName, planned: Array(12).fill(0), actual: Array(12).fill(0) }; map.set(category.categoryId, row); }
-      row.planned[monthIndex] = category.plannedAmount; row.actual[monthIndex] = category.actualAmount;
-    }));
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }, [budgets]);
-
-  const summary = useMemo(() => {
-    const projectedMonths = projection?.months ?? [];
-    const income = projection?.totalIncomeAmount ?? projectedMonths.reduce((total, item) => total + item.totalIncomeAmount, 0);
-    const expense = projection?.totalExpenseAmount ?? projectedMonths.reduce((total, item) => total + item.totalExpenseAmount, 0);
-    const result = projection?.netAmount ?? income - expense;
-    const lowest = projectedMonths.length ? projectedMonths.reduce((a, b) => b.closingBalance < a.closingBalance ? b : a) : null;
-    return { income, expense, result, lowest, negative: projectedMonths.filter((item) => item.isNegative), belowReserve: projectedMonths.filter((item) => item.closingBalance < reserve), final: projection?.finalBalance ?? opening };
-  }, [projection, opening, reserve]);
-
+  const categoryRows = useMemo(() => { const map = new Map<string, CategoryRow>(); budgets.forEach((budget, monthIndex) => budget?.categories?.forEach((category) => { let row = map.get(category.categoryId); if (!row) { row = { id: category.categoryId, name: category.categoryName, planned: Array(12).fill(0), actual: Array(12).fill(0) }; map.set(category.categoryId, row); } row.planned[monthIndex] = category.plannedAmount; row.actual[monthIndex] = category.actualAmount; })); return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')); }, [budgets]);
+  const summary = useMemo(() => { const projectedMonths = projection?.months ?? []; const income = projection?.totalIncomeAmount ?? projectedMonths.reduce((total, item) => total + item.totalIncomeAmount, 0); const expense = projection?.totalExpenseAmount ?? projectedMonths.reduce((total, item) => total + item.totalExpenseAmount, 0); const result = projection?.netAmount ?? income - expense; const lowest = projectedMonths.length ? projectedMonths.reduce((a, b) => b.closingBalance < a.closingBalance ? b : a) : null; return { income, expense, result, lowest, negative: projectedMonths.filter((item) => item.isNegative), belowReserve: projectedMonths.filter((item) => item.closingBalance < reserve), final: projection?.finalBalance ?? opening }; }, [projection, opening, reserve]);
   const chartData = useMemo(() => (projection?.months ?? []).map((item) => ({ month: months[item.month - 1], receitas: Math.max(0, item.totalIncomeAmount), despesas: Math.max(0, item.totalExpenseAmount), saldo: item.closingBalance, reserva: reserve })), [projection, reserve]);
   const month = projection?.months[selectedMonth]; const budget = budgets[selectedMonth]; const planned = budget?.plannedAmount ?? 0; const availableAboveReserve = month ? month.closingBalance - reserve : 0;
-  function openNew() { setEditorCategory(''); setEditorValues(Array(12).fill(0)); setNewCategory(''); setEditorOpen(true); }
-  function openRow(row: CategoryRow) { setEditorCategory(row.id); setEditorValues([...row.planned]); setNewCategory(''); setEditorOpen(true); }
-  function repeat(value: number) { setEditorValues(Array(12).fill(value)); }
+  function openNew() { setEditorCategory(''); setEditorValues(Array(12).fill(0)); setNewCategory(''); setEditorOpen(true); } function openRow(row: CategoryRow) { setEditorCategory(row.id); setEditorValues([...row.planned]); setNewCategory(''); setEditorOpen(true); } function repeat(value: number) { setEditorValues(Array(12).fill(value)); }
   async function createExpenseCategory() { const name = newCategory.trim(); if (!name) return; setCreatingCategory(true); setError(''); try { const created = await api.createCategory({ name, type: 2 }); setCategories((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))); setEditorCategory(created.id); setNewCategory(''); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao criar categoria'); } finally { setCreatingCategory(false); } }
   async function savePlan(event: FormEvent) { event.preventDefault(); if (!editorCategory) return; setSaving(true); setError(''); try { await Promise.all(editorValues.map((value, index) => api.setBudget({ year, month: index + 1, categoryId: editorCategory, plannedAmount: value }))); setEditorOpen(false); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao salvar planejamento'); } finally { setSaving(false); } }
   async function removeCurrent() { if (!editorCategory || !confirm('Remover este planejamento? Os lançamentos reais não serão apagados.')) return; setSaving(true); try { await api.removeAnnualBudgetCategory(year, editorCategory); setEditorOpen(false); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao remover planejamento'); } finally { setSaving(false); } }
   async function clearYear() { if (!categoryRows.length || !confirm(`Remover todos os ajustes manuais de ${year}? Lançamentos, recorrências e cartões continuam intactos.`)) return; setLoading(true); try { await api.clearAnnualBudget(year); await load(year); } catch (exception) { setError(exception instanceof Error ? exception.message : 'Falha ao limpar planejamento'); } finally { setLoading(false); } }
-
   return <section className="annual-plan">
-    <div className="annual-hero annual-hero-simple"><div className="annual-heading"><span className="section-kicker">VISÃO DO ANO</span><h2>Como seu {year} está projetado hoje</h2><p>O CashFlow calcula automaticamente usando lançamentos, recorrências, cartões e ajustes futuros já cadastrados.</p></div></div>
     <PeriodNavigator year={year} label="Ano" mode="year" onChange={(nextYear) => setYear(nextYear)} />
-    {loading && <div className="annual-loading">Atualizando projeção...</div>}
-    {error && <div className="error">{error}</div>}
+    <div className="annual-hero annual-hero-simple"><div className="annual-heading"><span className="section-kicker">VISÃO DO ANO</span><h2>Como seu {year} está projetado hoje</h2><p>O CashFlow calcula automaticamente usando lançamentos, recorrências, cartões e ajustes futuros já cadastrados.</p></div></div>
+    {loading && <div className="annual-loading">Atualizando projeção...</div>}{error && <div className="error">{error}</div>}
     <div className="annual-summary"><div><span>Receitas previstas</span><strong>{money(summary.income)}</strong><small>Entradas conhecidas no ano</small></div><div><span>Despesas previstas</span><strong>{money(summary.expense)}</strong><small>Compromissos + ajustes futuros</small></div><div><span>Sobra do ano</span><strong className={summary.result < 0 ? 'negative-text' : 'positive-text'}>{money(summary.result)}</strong><small>Receitas menos despesas</small></div><div><span>Saldo no fim do ano</span><strong className={summary.final < reserve ? 'negative-text' : 'positive-text'}>{money(summary.final)}</strong><small>Reserva desejada: {money(reserve)}</small></div></div>
     <div className={`annual-health ${summary.negative.length || summary.belowReserve.length ? 'annual-health-bad' : 'annual-health-good'}`}><div className="health-icon">{summary.negative.length || summary.belowReserve.length ? <AlertTriangle /> : <TrendingUp />}</div><div><strong>{summary.negative.length ? `${summary.negative.length} mês(es) terminam negativos` : summary.belowReserve.length ? `${summary.belowReserve.length} mês(es) ficam abaixo da reserva` : 'Seu ano está sustentável com os dados atuais'}</strong><span>{summary.negative.length ? `Primeiro mês negativo: ${months[(summary.negative[0]?.month ?? 1) - 1]}.` : summary.belowReserve.length ? `Primeiro mês abaixo da reserva: ${months[(summary.belowReserve[0]?.month ?? 1) - 1]}.` : `Nenhum mês invade a reserva mínima de ${money(reserve)}.`}</span></div>{summary.lowest && <div className="health-low"><span>Pior saldo</span><strong>{months[summary.lowest.month - 1]} · {money(summary.lowest.closingBalance)}</strong></div>}</div>
     <section className="annual-charts-grid"><article className="panel annual-chart-card"><div className="panel-title"><div><span className="section-kicker">FLUXO DO ANO</span><h2>Receitas x despesas</h2><p>Comparação mensal das entradas e saídas.</p></div></div><div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" interval={0} minTickGap={0} tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Bar dataKey="receitas" name="Receitas" fill="#16a34a" radius={[5, 5, 0, 0]} /><Bar dataKey="despesas" name="Despesas" fill="#dc2626" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div></article><article className="panel annual-chart-card"><div className="panel-title"><div><span className="section-kicker">SEGURANÇA</span><h2>Evolução do saldo</h2><p>Saldo projetado comparado à reserva mínima.</p></div></div><div className="annual-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" interval={0} minTickGap={0} tickLine={false} axisLine={false} /><YAxis tickFormatter={compactMoney} tickLine={false} axisLine={false} width={58} /><Tooltip formatter={(value) => money(Number(value))} /><Legend /><Line type="linear" dataKey="saldo" name="Saldo projetado" stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} /><Line type="linear" dataKey="reserva" name="Reserva mínima" stroke="#f59e0b" strokeDasharray="6 4" dot={false} /></ComposedChart></ResponsiveContainer></div></article></section>
