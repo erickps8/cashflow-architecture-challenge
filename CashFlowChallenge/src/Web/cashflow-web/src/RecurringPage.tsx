@@ -1,1 +1,172 @@
-import {FormEvent,useEffect,useState} from 'react';import {Plus,Repeat2,Trash2,X} from 'lucide-react';import * as api from './api';import './forms-modern.css';const money=(v:number)=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});type CreateRequest={id:number;action:string}|null;const blank=()=>({amount:0,type:2,description:'',accountId:'',categoryId:'',frequency:0,startAt:new Date().toISOString().slice(0,10),endAt:'',isActive:true});export default function RecurringPage({createRequest}:{createRequest?:CreateRequest}){const[list,setList]=useState<api.Recurring[]>([]),[accounts,setAccounts]=useState<api.Account[]>([]),[cats,setCats]=useState<api.Category[]>([]),[open,setOpen]=useState(false),[editing,setEditing]=useState<api.Recurring|null>(null);const[f,setF]=useState(blank());const load=()=>Promise.all([api.getRecurring(),api.getAccounts(),api.getCategories()]).then(([a,b,c])=>{setList(a);setAccounts(b);setCats(c)});useEffect(()=>{load()},[]);useEffect(()=>{if(createRequest?.action==='recurring')openNew()},[createRequest?.id]);function openNew(){setEditing(null);setF(blank());setOpen(true)}function openItem(x:api.Recurring){setEditing(x);setF({amount:x.amount,type:x.type,description:x.description,accountId:x.accountId||'',categoryId:x.categoryId||'',frequency:x.frequency,startAt:x.startAt.slice(0,10),endAt:x.endAt?.slice(0,10)||'',isActive:x.isActive});setOpen(true)}async function save(e:FormEvent){e.preventDefault();const body={...f,accountId:f.accountId||null,categoryId:f.categoryId||null,startAt:new Date(`${f.startAt}T12:00:00`).toISOString(),endAt:f.endAt?new Date(`${f.endAt}T12:00:00`).toISOString():null};if(editing)await api.updateRecurring(editing.id,body);else await api.createRecurring(body);setOpen(false);load()}async function remove(){if(editing&&confirm(`Excluir a recorrência “${editing.description}”?`)){await api.deleteRecurring(editing.id);setOpen(false);load()}}return <section className="modern-page"><article className="panel modern-list-card"><div className="modern-list-head"><div><span className="section-kicker">RECORRÊNCIAS</span><h2>Compromissos automáticos</h2><p>Toque em uma recorrência para ver ou editar</p></div><button className="desktop-add-button" onClick={openNew}><Plus size={18}/>Adicionar</button></div><div className="modern-list">{list.map(x=><button type="button" className="modern-row modern-row-button" key={x.id} onClick={()=>openItem(x)}><div className="modern-row-icon"><Repeat2/></div><div><strong>{x.description}</strong><span>{x.isActive?'Próxima: '+new Date(x.nextOccurrenceAt).toLocaleDateString('pt-BR'):'Inativa'}</span></div><strong>{money(x.amount)}</strong></button>)}</div></article>{open&&<div className="modern-modal-backdrop"><section className="modern-modal"><div className="modern-modal-head"><div><span className="section-kicker">{editing?'DETALHES DA RECORRÊNCIA':'NOVA RECORRÊNCIA'}</span><h2>{editing?'Editar compromisso':'Adicionar compromisso'}</h2></div><button onClick={()=>setOpen(false)}><X/></button></div><form onSubmit={save} className="modern-form"><div className="entry-type-toggle"><button type="button" className={f.type===2?'active expense':''} onClick={()=>setF({...f,type:2})}>Despesa</button><button type="button" className={f.type===1?'active income':''} onClick={()=>setF({...f,type:1})}>Receita</button></div><label className="entry-amount">Valor<div><span>R$</span><input type="number" step="0.01" value={f.amount||''} onChange={e=>setF({...f,amount:+e.target.value})}/></div></label><label>Descrição<input value={f.description} onChange={e=>setF({...f,description:e.target.value})}/></label><div className="modern-grid"><label>Conta<select value={f.accountId} onChange={e=>setF({...f,accountId:e.target.value})}><option value="">Sem conta</option>{accounts.filter(x=>x.isActive).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>Categoria<select value={f.categoryId} onChange={e=>setF({...f,categoryId:e.target.value})}><option value="">Sem categoria</option>{cats.filter(x=>x.type===f.type&&x.isActive).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>Começa em<input type="date" value={f.startAt} onChange={e=>setF({...f,startAt:e.target.value})}/></label><label>Termina em<input type="date" value={f.endAt} onChange={e=>setF({...f,endAt:e.target.value})}/></label>{editing&&<label>Status<select value={f.isActive?'1':'0'} onChange={e=>setF({...f,isActive:e.target.value==='1'})}><option value="1">Ativa</option><option value="0">Inativa</option></select></label>}</div><div className="modern-actions modern-actions-split">{editing&&<button type="button" className="danger-button" onClick={remove}><Trash2 size={16}/>Excluir item</button>}<div className="modern-actions-right"><button type="button" className="modern-cancel" onClick={()=>setOpen(false)}>Cancelar</button><button className="primary-button">Salvar</button></div></div></form></section></div>}</section>}
+import { FormEvent, useEffect, useState } from 'react';
+import { Plus, Repeat2, Trash2, X } from 'lucide-react';
+import * as api from './api';
+import './forms-modern.css';
+
+const money = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+type CreateRequest = { id: number; action: string } | null;
+
+type RecurringForm = {
+  amount: number;
+  type: number;
+  description: string;
+  accountId: string;
+  categoryId: string;
+  frequency: number;
+  startAt: string;
+  endAt: string;
+  isActive: boolean;
+};
+
+const blankForm = (): RecurringForm => ({
+  amount: 0,
+  type: 2,
+  description: '',
+  accountId: '',
+  categoryId: '',
+  frequency: 0,
+  startAt: new Date().toISOString().slice(0, 10),
+  endAt: '',
+  isActive: true,
+});
+
+export default function RecurringPage({ createRequest }: { createRequest?: CreateRequest }) {
+  const [list, setList] = useState<api.Recurring[]>([]);
+  const [accounts, setAccounts] = useState<api.Account[]>([]);
+  const [categories, setCategories] = useState<api.Category[]>([]);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<api.Recurring | null>(null);
+  const [form, setForm] = useState<RecurringForm>(blankForm());
+
+  const load = async () => {
+    const [recurring, loadedAccounts, loadedCategories] = await Promise.all([
+      api.getRecurring(),
+      api.getAccounts(),
+      api.getCategories(),
+    ]);
+    setList(recurring);
+    setAccounts(loadedAccounts);
+    setCategories(loadedCategories);
+  };
+
+  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (createRequest?.action === 'recurring') openNew();
+  }, [createRequest?.id]);
+
+  function openNew() {
+    setEditing(null);
+    setForm(blankForm());
+    setOpen(true);
+  }
+
+  function openItem(item: api.Recurring) {
+    setEditing(item);
+    setForm({
+      amount: item.amount,
+      type: item.type,
+      description: item.description,
+      accountId: item.accountId || '',
+      categoryId: item.categoryId || '',
+      frequency: item.frequency,
+      startAt: item.startAt.slice(0, 10),
+      endAt: item.endAt?.slice(0, 10) || '',
+      isActive: item.isActive,
+    });
+    setOpen(true);
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const body = {
+      ...form,
+      accountId: form.accountId || null,
+      categoryId: form.categoryId || null,
+      startAt: new Date(`${form.startAt}T12:00:00`).toISOString(),
+      endAt: form.endAt ? new Date(`${form.endAt}T12:00:00`).toISOString() : null,
+    };
+
+    if (editing) await api.updateRecurring(editing.id, body);
+    else await api.createRecurring(body);
+
+    setOpen(false);
+    await load();
+  }
+
+  async function remove() {
+    if (!editing || !confirm(`Excluir a recorrência “${editing.description}”?`)) return;
+    await api.deleteRecurring(editing.id);
+    setOpen(false);
+    await load();
+  }
+
+  return (
+    <section className="modern-page">
+      <article className="panel modern-list-card">
+        <div className="modern-list-head">
+          <div>
+            <span className="section-kicker">RECORRÊNCIAS</span>
+            <h2>Compromissos automáticos</h2>
+            <p>Toque em uma recorrência para ver ou editar</p>
+          </div>
+          <button className="desktop-add-button" onClick={openNew}><Plus size={18} />Adicionar</button>
+        </div>
+
+        <div className="modern-list">
+          {list.map((item) => (
+            <button type="button" className="modern-row modern-row-button" key={item.id} onClick={() => openItem(item)}>
+              <div className="modern-row-icon"><Repeat2 /></div>
+              <div>
+                <strong>{item.description}</strong>
+                <span>{item.isActive ? `Próxima: ${new Date(item.nextOccurrenceAt).toLocaleDateString('pt-BR')}` : 'Inativa'}</span>
+              </div>
+              <strong>{money(item.amount)}</strong>
+            </button>
+          ))}
+        </div>
+      </article>
+
+      {open && (
+        <div className="modern-modal-backdrop">
+          <section className="modern-modal">
+            <div className="modern-modal-head">
+              <div>
+                <span className="section-kicker">{editing ? 'DETALHES DA RECORRÊNCIA' : 'NOVA RECORRÊNCIA'}</span>
+                <h2>{editing ? 'Editar compromisso' : 'Adicionar compromisso'}</h2>
+              </div>
+              <button onClick={() => setOpen(false)}><X /></button>
+            </div>
+
+            <form onSubmit={save} className="modern-form">
+              <div className="entry-type-toggle">
+                <button type="button" className={form.type === 2 ? 'active expense' : ''} onClick={() => setForm({ ...form, type: 2 })}>Despesa</button>
+                <button type="button" className={form.type === 1 ? 'active income' : ''} onClick={() => setForm({ ...form, type: 1 })}>Receita</button>
+              </div>
+
+              <label className="entry-amount">Valor<div><span>R$</span><input type="number" step="0.01" value={form.amount || ''} onChange={(event) => setForm({ ...form, amount: +event.target.value })} /></div></label>
+              <label>Descrição<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
+
+              <div className="modern-grid">
+                <label>Conta<select value={form.accountId} onChange={(event) => setForm({ ...form, accountId: event.target.value })}><option value="">Sem conta</option>{accounts.filter((item) => item.isActive).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                <label>Categoria<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}><option value="">Sem categoria</option>{categories.filter((item) => item.type === form.type && item.isActive).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                <label>Começa em<input type="date" value={form.startAt} onChange={(event) => setForm({ ...form, startAt: event.target.value })} /></label>
+                <label>Termina em<input type="date" value={form.endAt} onChange={(event) => setForm({ ...form, endAt: event.target.value })} /></label>
+                {editing && <label>Status<select value={form.isActive ? '1' : '0'} onChange={(event) => setForm({ ...form, isActive: event.target.value === '1' })}><option value="1">Ativa</option><option value="0">Inativa</option></select></label>}
+              </div>
+
+              <div className="modern-actions modern-actions-split">
+                {editing && <button type="button" className="danger-button" onClick={remove}><Trash2 size={16} />Excluir item</button>}
+                <div className="modern-actions-right">
+                  <button type="button" className="modern-cancel" onClick={() => setOpen(false)}>Cancelar</button>
+                  <button className="primary-button">Salvar</button>
+                </div>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}

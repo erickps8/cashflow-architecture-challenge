@@ -3,15 +3,26 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "scripts": {"dev":"vite","build":"tsc -b && vite build","preview":"vite preview"},
-  "dependencies": {
-    "@vitejs/plugin-react":"latest",
-    "vite":"latest",
-    "typescript":"latest",
-    "react":"latest",
-    "react-dom":"latest",
-    "lucide-react":"latest",
-    "recharts":"latest"
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "android:sync": "npm run build && cap sync android"
   },
-  "devDependencies": {"@types/react":"latest","@types/react-dom":"latest"}
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest",
+    "recharts": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  }
 }

@@ -8,14 +8,17 @@ namespace CashFlow.Launch.Infrastructure.Repositories;
 
 public class MonthlyBudgetRepository : BaseRepository<MonthlyBudget>, IMonthlyBudgetRepository
 {
-    private readonly CashFlowDbContext _context;
-
-    public MonthlyBudgetRepository(CashFlowDbContext context) : base(context) => _context = context;
+    public MonthlyBudgetRepository(CashFlowDbContext context) : base(context)
+    {
+    }
 
     public Task<MonthlyBudget?> GetByMonthAndCategoryAsync(int year, int month, Guid categoryId)
     {
         return _context.MonthlyBudgets
-            .FirstOrDefaultAsync(x => x.Year == year && x.Month == month && x.CategoryId == categoryId);
+            .FirstOrDefaultAsync(x =>
+                x.Year == year &&
+                x.Month == month &&
+                x.CategoryId == categoryId);
     }
 
     public Task<List<MonthlyBudget>> GetByMonthAsync(int year, int month)
