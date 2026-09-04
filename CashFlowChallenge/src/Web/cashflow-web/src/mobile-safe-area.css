@@ -1,0 +1,30 @@
+/* Keep interactive chrome clear of Android/iOS system bars without changing desktop layout. */
+@media (max-width: 900px) {
+  .content {
+    padding-top: max(20px, calc(env(safe-area-inset-top) + 12px));
+    padding-bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px));
+  }
+
+  .mobile-nav {
+    padding-bottom: max(10px, calc(env(safe-area-inset-bottom) + 8px));
+  }
+
+  .login-page,
+  .onboarding-page,
+  .onboarding-shell {
+    padding-top: max(20px, calc(env(safe-area-inset-top) + 12px));
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 16px));
+  }
+
+  .entry-modal,
+  .global-create-menu {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding-top: max(16px, calc(env(safe-area-inset-top) + 10px));
+    padding-bottom: max(86px, calc(env(safe-area-inset-bottom) + 78px));
+  }
+}
