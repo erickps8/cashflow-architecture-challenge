@@ -17,4 +17,7 @@ public class Entry : Entity
     public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
     public bool IsRecurring { get; set; }
+
+    // When a generated recurrence is postponed, keep its first due date for history/audit.
+    public DateTime? OriginalOccurredAt { get; set; }
 }
