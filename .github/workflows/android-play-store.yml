@@ -98,6 +98,15 @@ jobs:
           path.write_text(text)
           PY
 
+      - name: Verify Android release configuration
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          grep -q 'compileSdkVersion = 36' android/variables.gradle
+          grep -q 'targetSdkVersion = 36' android/variables.gradle
+          grep -q "versionCode $VERSION_CODE" android/app/build.gradle
+          echo "Validated targetSdk=36 and versionCode=$VERSION_CODE"
+
       - name: Build signed release AAB
         working-directory: CashFlowChallenge/src/Web/cashflow-web/android
         env:
