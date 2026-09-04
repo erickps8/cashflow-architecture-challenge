@@ -8,6 +8,7 @@ import './entries.css';
 import './forms-modern.css';
 import './global-create.css';
 import './auth-mobile-fixes.css';
+import './mobile-safe-area.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
