@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using CashFlow.Launch.Api.Controllers.Base;
 using CashFlow.Launch.Api.Dtos.Requests;
 using CashFlow.Launch.Domain.Interfaces.Services;
@@ -10,35 +10,32 @@ namespace CashFlow.Launch.Api.Controllers;
 
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/entries")]
-public class EntriesController : MainController
+[Authorize]
+public sealed class EntriesController : MainController
 {
-    private readonly IEntryService _service;
+    private readonly IEntryService _entryService;
 
-    public EntriesController(
-        IEntryService service,
-        INotificator notificator)
-        : base(notificator)
-    {
-        _service = service;
-    }
+    public EntriesController(IEntryService entryService, INotificator notificator) : base(notificator) => _entryService = entryService;
 
-    [Authorize(Roles = "entries-create")]
     [HttpPost]
-    public async Task<IActionResult> Create(CreateEntryRequest request)
-    {
-        var result = await _service.CreateAsync(
-            request.Amount,
-            request.Type,
-            request.Description,
-            request.OccurredAt);
+    public async Task<IActionResult> Create(CreateEntryRequest request) => CustomResponse(await _entryService.CreateAsync(request.Amount, request.Type, request.Description, request.OccurredAt, request.AccountId, request.CategoryId, request.IsRecurring));
 
-        return CustomResponse(result);
-    }
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, CreateEntryRequest request) => CustomResponse(await _entryService.UpdateAsync(id, request.Amount, request.Type, request.Description, request.OccurredAt, request.AccountId, request.CategoryId, request.IsRecurring));
 
-    [Authorize(Roles = "entries")]
+    [HttpPost("{id:guid}/defer")]
+    public async Task<IActionResult> Defer(Guid id) => CustomResponse(await _entryService.DeferToNextMonthAsync(id));
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id) => CustomResponse(await _entryService.DeleteAsync(id));
+
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll() => CustomResponse(await _entryService.GetAllAsync());
+
+    [HttpGet("monthly/{year:int}/{month:int}")]
+    public async Task<IActionResult> GetByMonth(int year, int month)
     {
-        return CustomResponse(await _service.GetAllAsync());
+        if (month is < 1 or > 12) return BadRequest("Month must be between 1 and 12.");
+        return CustomResponse(await _entryService.GetByMonthAsync(year, month));
     }
 }

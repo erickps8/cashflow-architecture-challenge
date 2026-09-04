@@ -1,11 +1,7 @@
-﻿namespace CashFlow.Launch.Domain.Entities.Base;
-
+namespace CashFlow.Launch.Domain.Entities.Base;
 public abstract class Entity
 {
-    protected Entity()
-    {
-        Id = Guid.NewGuid();
-    }
-
+    protected Entity(){Id=Guid.NewGuid();}
     public Guid Id { get; set; }
+    public Guid GroupId { get; set; }
 }

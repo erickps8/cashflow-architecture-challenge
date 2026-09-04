@@ -11,14 +11,9 @@ namespace CashFlow.Launch.Infrastructure.Extensions;
 
 public static class DependencyInjectionExtensions
 {
-    public static IServiceCollection AddLaunchInfrastructure(
-        this IServiceCollection services,
-        string connectionString)
+    public static IServiceCollection AddLaunchInfrastructure(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContext<CashFlowDbContext>(options =>
-        {
-            options.UseNpgsql(connectionString);
-        });
+        services.AddDbContext<CashFlowDbContext>(options => options.UseNpgsql(connectionString));
 
         services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
         services.AddScoped<IEntryService, EntryService>();
@@ -29,6 +24,19 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<ICategoryService, CategoryService>();
+
+        services.AddScoped<IRecurringEntryRepository, RecurringEntryRepository>();
+        services.AddScoped<IRecurringEntryService, RecurringEntryService>();
+
+        services.AddScoped<ICreditCardRepository, CreditCardRepository>();
+        services.AddScoped<ICreditCardPurchaseRepository, CreditCardPurchaseRepository>();
+        services.AddScoped<ICreditCardInstallmentRepository, CreditCardInstallmentRepository>();
+        services.AddScoped<ICreditCardService, CreditCardService>();
+
+        services.AddScoped<IMonthlyBudgetRepository, MonthlyBudgetRepository>();
+        services.AddScoped<IMonthlyBudgetService, MonthlyBudgetService>();
+
+        services.AddScoped<IMonthlyBalanceService, MonthlyBalanceService>();
 
         return services;
     }

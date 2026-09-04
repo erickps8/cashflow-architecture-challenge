@@ -1,8 +1,12 @@
-﻿using CashFlow.Auth.Api.Controllers;
+using System.Security.Claims;
+using CashFlow.Auth.Api.Controllers;
+using CashFlow.Auth.Api.Data;
 using CashFlow.Auth.Api.Models;
+using CashFlow.Auth.Api.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Moq;
 
@@ -10,16 +14,15 @@ namespace CashFlow.Tests;
 
 public class AuthControllerTests
 {
-    private readonly Mock<UserManager<IdentityUser>> _userManagerMock;
-    private readonly Mock<RoleManager<IdentityRole>> _roleManagerMock;
-    private readonly Mock<IConfiguration> _configurationMock;
+    private readonly Mock<UserManager<IdentityUser>> _users;
+    private readonly Mock<IPasswordResetNotifier> _passwordResetNotifier = new();
+    private readonly IConfiguration _configuration;
 
     public AuthControllerTests()
     {
-        var userStoreMock = new Mock<IUserStore<IdentityUser>>();
-
-        _userManagerMock = new Mock<UserManager<IdentityUser>>(
-            userStoreMock.Object,
+        var store = new Mock<IUserStore<IdentityUser>>();
+        _users = new Mock<UserManager<IdentityUser>>(
+            store.Object,
             null!,
             null!,
             null!,
@@ -29,135 +32,160 @@ public class AuthControllerTests
             null!,
             null!);
 
-        var roleStoreMock = new Mock<IRoleStore<IdentityRole>>();
+        _users.Setup(x => x.GetClaimsAsync(It.IsAny<IdentityUser>()))
+            .ReturnsAsync(new List<Claim>());
+        _users.Setup(x => x.AddClaimAsync(It.IsAny<IdentityUser>(), It.IsAny<Claim>()))
+            .ReturnsAsync(IdentityResult.Success);
 
-        _roleManagerMock = new Mock<RoleManager<IdentityRole>>(
-            roleStoreMock.Object,
-            null!,
-            null!,
-            null!,
-            null!);
-
-        _configurationMock = new Mock<IConfiguration>();
-
-        _configurationMock.Setup(x => x["Jwt:Key"])
-            .Returns("super-secret-key-super-secret-key");
-
-        _configurationMock.Setup(x => x["Jwt:Issuer"])
-            .Returns("cashflow");
-
-        _configurationMock.Setup(x => x["Jwt:Audience"])
-            .Returns("cashflow-users");
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "super-secret-key-super-secret-key",
+                ["Jwt:Issuer"] = "cashflow",
+                ["Jwt:Audience"] = "cashflow-users"
+            })
+            .Build();
     }
+
+    private AuthDbContext Db(string name) =>
+        new(new DbContextOptionsBuilder<AuthDbContext>()
+            .UseInMemoryDatabase(name)
+            .Options);
+
+    private AuthController CreateController(AuthDbContext db) =>
+        new(_users.Object, db, _configuration, _passwordResetNotifier.Object);
 
     [Fact]
     public async Task Login_Should_Return_Unauthorized_When_User_Does_Not_Exist()
     {
-        _userManagerMock
-            .Setup(x => x.FindByNameAsync(It.IsAny<string>()))
+        _users.Setup(x => x.FindByNameAsync(It.IsAny<string>()))
+            .ReturnsAsync((IdentityUser?)null);
+        _users.Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
             .ReturnsAsync((IdentityUser?)null);
 
-        var controller = new AuthController(
-            _userManagerMock.Object,
-            _roleManagerMock.Object,
-            _configurationMock.Object);
+        await using var db = Db(Guid.NewGuid().ToString());
+        var controller = CreateController(db);
 
-        var request = new LoginRequest
+        var result = await controller.Login(new LoginRequest
         {
-            Username = "erick",
+            Username = "nobody@test.local",
             Password = "123456"
-        };
-
-        var result = await controller.Login(request);
+        });
 
         result.Should().BeOfType<UnauthorizedResult>();
     }
 
     [Fact]
-    public async Task Register_Should_Return_Ok_When_User_Is_Created()
+    public async Task Register_First_User_Should_Create_New_Group_As_Active_Owner()
     {
-        _userManagerMock
-            .Setup(x => x.CreateAsync(
-                It.IsAny<IdentityUser>(),
-                It.IsAny<string>()))
+        _users.Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((IdentityUser?)null);
+        _users.Setup(x => x.CreateAsync(It.IsAny<IdentityUser>(), It.IsAny<string>()))
             .ReturnsAsync(IdentityResult.Success);
 
-        _roleManagerMock
-            .Setup(x => x.RoleExistsAsync(It.IsAny<string>()))
-            .ReturnsAsync(true);
+        await using var db = Db(Guid.NewGuid().ToString());
+        var controller = CreateController(db);
 
-        _userManagerMock
-            .Setup(x => x.AddToRoleAsync(
-                It.IsAny<IdentityUser>(),
-                It.IsAny<string>()))
-            .ReturnsAsync(IdentityResult.Success);
-
-        var controller = new AuthController(
-            _userManagerMock.Object,
-            _roleManagerMock.Object,
-            _configurationMock.Object);
-
-        var request = new RegisterRequest
+        var result = await controller.Register(new RegisterRequest
         {
-            Username = "erick",
-            Email = "erick@gmail.com",
+            Name = "Owner",
+            Email = "owner@test.local",
             Password = "123456",
-            Roles =
-            [
-                "Entry.Create"
-            ]
-        };
-
-        var result = await controller.Register(request);
+            GroupName = "Familia Teste"
+        });
 
         result.Should().BeOfType<OkObjectResult>();
 
-        _userManagerMock.Verify(x =>
-            x.CreateAsync(
-                It.IsAny<IdentityUser>(),
-                "123456"),
-            Times.Once);
+        var group = await db.Groups.SingleAsync();
+        var membership = await db.GroupMemberships.SingleAsync();
 
-        _userManagerMock.Verify(x =>
-            x.AddToRoleAsync(
-                It.IsAny<IdentityUser>(),
-                "Entry.Create"),
-            Times.Once);
+        group.Id.Should().NotBe(Guid.Empty);
+        membership.GroupId.Should().Be(group.Id);
+        membership.Role.Should().Be(GroupMemberRole.Owner);
+        membership.Status.Should().Be(GroupMemberStatus.Active);
     }
 
     [Fact]
-    public async Task Login_Should_Return_Token_When_Credentials_Are_Valid()
+    public async Task Register_Second_User_In_Existing_Group_Should_Be_Pending_Member()
+    {
+        var group = new CashFlowGroup
+        {
+            Name = "Familia Teste",
+            NormalizedName = "FAMILIA TESTE",
+            OwnerUserId = "owner"
+        };
+
+        await using var db = Db(Guid.NewGuid().ToString());
+        db.Groups.Add(group);
+        await db.SaveChangesAsync();
+
+        _users.Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((IdentityUser?)null);
+        _users.Setup(x => x.CreateAsync(It.IsAny<IdentityUser>(), It.IsAny<string>()))
+            .ReturnsAsync(IdentityResult.Success);
+
+        var controller = CreateController(db);
+
+        var result = await controller.Register(new RegisterRequest
+        {
+            Name = "Member",
+            Email = "member@test.local",
+            Password = "123456",
+            GroupName = "Familia Teste"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+
+        var membership = await db.GroupMemberships.SingleAsync();
+        membership.GroupId.Should().Be(group.Id);
+        membership.Role.Should().Be(GroupMemberRole.Member);
+        membership.Status.Should().Be(GroupMemberStatus.Pending);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Should_Not_Reveal_When_Email_Does_Not_Exist()
+    {
+        _users.Setup(x => x.FindByEmailAsync("missing@test.local"))
+            .ReturnsAsync((IdentityUser?)null);
+
+        await using var db = Db(Guid.NewGuid().ToString());
+        var controller = CreateController(db);
+
+        var result = await controller.ForgotPassword(
+            new ForgotPasswordRequest("missing@test.local"),
+            CancellationToken.None);
+
+        result.Should().BeOfType<OkObjectResult>();
+        _passwordResetNotifier.Verify(
+            x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Should_Send_Reset_Token_When_Email_Exists()
     {
         var user = new IdentityUser
         {
-            UserName = "erick"
+            Id = "user-1",
+            Email = "user@test.local",
+            UserName = "user@test.local"
         };
 
-        _userManagerMock
-            .Setup(x => x.FindByNameAsync("erick"))
+        _users.Setup(x => x.FindByEmailAsync(user.Email))
             .ReturnsAsync(user);
+        _users.Setup(x => x.GeneratePasswordResetTokenAsync(user))
+            .ReturnsAsync("reset-token");
 
-        _userManagerMock
-            .Setup(x => x.CheckPasswordAsync(user, "123456"))
-            .ReturnsAsync(true);
+        await using var db = Db(Guid.NewGuid().ToString());
+        var controller = CreateController(db);
 
-        _userManagerMock
-            .Setup(x => x.GetRolesAsync(user))
-            .ReturnsAsync(["Entry.Create"]);
-
-        var controller = new AuthController(
-            _userManagerMock.Object,
-            _roleManagerMock.Object,
-            _configurationMock.Object);
-
-        var request = new LoginRequest
-        {
-            Username = "erick",
-            Password = "123456"
-        };
-
-        var result = await controller.Login(request);
+        var result = await controller.ForgotPassword(
+            new ForgotPasswordRequest(user.Email),
+            CancellationToken.None);
 
         result.Should().BeOfType<OkObjectResult>();
+        _passwordResetNotifier.Verify(
+            x => x.SendAsync(user.Email, "reset-token", It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }
