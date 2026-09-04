@@ -57,7 +57,7 @@ jobs:
           test -n "$ANDROID_KEYSTORE_BASE64"
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/cashflow-release.jks
 
-      - name: Configure release signing and version
+      - name: Configure Android API, release signing and version
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -69,7 +69,16 @@ jobs:
           test -n "$ANDROID_KEY_PASSWORD"
           python3 - <<'PY'
           import os
+          import re
           from pathlib import Path
+
+          variables_path = Path('android/variables.gradle')
+          variables = variables_path.read_text()
+          variables, compile_count = re.subn(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36', variables, count=1)
+          variables, target_count = re.subn(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', variables, count=1)
+          if compile_count != 1 or target_count != 1:
+              raise SystemExit('Could not configure Android compile/target SDK 36')
+          variables_path.write_text(variables)
 
           path = Path('android/app/build.gradle')
           text = path.read_text()
