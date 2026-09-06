@@ -51,7 +51,7 @@ async function synchronizeSessionCore() {
 
 async function startRefreshSession(accessToken: string) {
   try {
-    const response = await send('/api/auth/session/start', 'POST', undefined, accessToken);
+    const response = await send('/auth/session/start', 'POST', undefined, accessToken);
     if (response.status < 200 || response.status >= 300) return;
     storeRefreshSession(response.data);
   } catch {
@@ -61,7 +61,7 @@ async function startRefreshSession(accessToken: string) {
 
 async function refreshAccessToken(refresh: RefreshSession) {
   try {
-    const response = await send('/api/auth/session/refresh', 'POST', {
+    const response = await send('/auth/session/refresh', 'POST', {
       userId: refresh.userId,
       sessionId: refresh.sessionId,
       refreshToken: refresh.refreshToken,
