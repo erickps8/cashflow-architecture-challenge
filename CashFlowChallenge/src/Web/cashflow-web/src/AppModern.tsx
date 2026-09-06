@@ -26,6 +26,43 @@ type LogoutProps = {
   logout: () => void;
 };
 
+type JwtPayload = {
+  exp?: number;
+};
+
+function hasActiveSession() {
+  const token = api.session.token;
+
+  if (!token || api.session.state !== 'active') {
+    return false;
+  }
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return false;
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized)) as JwtPayload;
+
+    if (!decoded.exp) {
+      return true;
+    }
+
+    const isExpired = decoded.exp * 1000 <= Date.now();
+    if (isExpired) {
+      api.session.clear();
+      return false;
+    }
+
+    return true;
+  } catch {
+    api.session.clear();
+    return false;
+  }
+}
+
 function AppShell({ logout }: LogoutProps) {
   const now = new Date();
   const [tab, setTab] = useState<TabId>('dash');
@@ -161,9 +198,16 @@ function LoggedApp({ logout }: LogoutProps) {
         setOnboarding(!hasFinancialData);
       })
       .catch(() => {
-        if (active) {
-          setOnboarding(false);
+        if (!active) {
+          return;
         }
+
+        if (!api.session.token) {
+          logout();
+          return;
+        }
+
+        setOnboarding(false);
       })
       .finally(() => {
         if (active) {
@@ -174,7 +218,7 @@ function LoggedApp({ logout }: LogoutProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [logout]);
 
   if (checking) {
     return <LoadingApp />;
@@ -189,7 +233,7 @@ function LoggedApp({ logout }: LogoutProps) {
 }
 
 export default function AppModern() {
-  const [logged, setLogged] = useState(Boolean(api.session.token && api.session.state === 'active'));
+  const [logged, setLogged] = useState(hasActiveSession);
 
   if (!logged) {
     return <AuthPage done={() => setLogged(true)} />;
