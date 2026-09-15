@@ -2,7 +2,13 @@
 {
     public class LoginRequest
     {
-        public string Username { get; set; } = string.Empty;
+        private string _username = string.Empty;
+
+        public string Username
+        {
+            get => _username;
+            set => _username = value?.Trim() ?? string.Empty;
+        }
 
         public string Password { get; set; } = string.Empty;
     }
