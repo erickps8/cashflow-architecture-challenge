@@ -23,6 +23,7 @@ function previousPeriod(year: number, month: number) {
 
 export default function DashboardPage({ year, month }: { year: number; month: number }) {
   const [balance, setBalance] = useState<api.MonthlyBalance | null>(null);
+  const [previousBalance, setPreviousBalance] = useState<api.MonthlyBalance | null>(null);
   const [projection, setProjection] = useState<api.Projection | null>(null);
   const [entries, setEntries] = useState<api.Entry[]>([]);
   const [previousEntries, setPreviousEntries] = useState<api.Entry[]>([]);
@@ -39,9 +40,19 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
         const untilCurrentMonth = await api.getProjection(year, 1, month, initialBalance);
         const current = untilCurrentMonth.months.at(-1);
         if (!current) return;
+
+        let prior: api.MonthlyBalance | null = null;
+        if (month > 1) {
+          prior = untilCurrentMonth.months.at(-2) ?? null;
+        } else {
+          const previousYear = await api.getProjection(year - 1, 1, 12, initialBalance);
+          prior = previousYear.months.at(-1) ?? null;
+        }
+
         const future = await api.getProjection(year, month, 6, current.openingBalance);
         if (active) {
           setBalance(current);
+          setPreviousBalance(prior);
           setProjection(future);
           setEntries(monthEntries);
           setPreviousEntries(priorEntries);
@@ -77,40 +88,42 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
       .slice(0, 8);
   }, [entries, previousEntries, categories]);
 
-  const currentEntryExpense = entries.filter((entry) => entry.type === 2).reduce((sum, entry) => sum + entry.amount, 0);
-  const previousEntryExpense = previousEntries.filter((entry) => entry.type === 2).reduce((sum, entry) => sum + entry.amount, 0);
-  const expenseChange = previousEntryExpense > 0 ? ((currentEntryExpense - previousEntryExpense) / previousEntryExpense) * 100 : null;
-  const canSpend = balance ? Math.max(0, balance.closingBalance) : 0;
+  const expenseChange = previousBalance && previousBalance.totalExpenseAmount > 0
+    ? ((balance?.totalExpenseAmount ?? 0) - previousBalance.totalExpenseAmount) / previousBalance.totalExpenseAmount * 100
+    : null;
+  const monthlyResult = balance?.netAmount ?? 0;
   const firstNegative = projection?.months.find((item) => item.isNegative);
   const topCategory = categoryBreakdown[0];
 
   const alerts = useMemo(() => {
     const items: Array<{ tone: 'good' | 'bad' | 'warn'; text: string }> = [];
-    if (canSpend > 0) items.push({ tone: 'good', text: `Após os compromissos conhecidos, ainda restam ${money(canSpend)} de margem neste mês.` });
-    else if (balance && balance.closingBalance < 0) items.push({ tone: 'bad', text: `O mês está projetado para fechar ${money(Math.abs(balance.closingBalance))} no negativo.` });
+    if (monthlyResult > 0) items.push({ tone: 'good', text: `Após as receitas e despesas conhecidas, o mês tem sobra de ${money(monthlyResult)}.` });
+    else if (monthlyResult < 0) items.push({ tone: 'bad', text: `As despesas conhecidas superam as receitas do mês em ${money(Math.abs(monthlyResult))}.` });
+    else items.push({ tone: 'warn', text: 'As receitas e despesas conhecidas do mês estão empatadas.' });
+    if (balance && balance.closingBalance < 0) items.push({ tone: 'bad', text: `Considerando o saldo de abertura, o mês está projetado para fechar ${money(Math.abs(balance.closingBalance))} no negativo.` });
     if (firstNegative) items.push({ tone: 'bad', text: `Mantendo os compromissos atuais, ${monthName(firstNegative.month)}/${firstNegative.year} fecha negativo.` });
-    if (expenseChange !== null && expenseChange >= 15) items.push({ tone: 'warn', text: `Seus gastos lançados estão ${expenseChange.toFixed(0)}% maiores que no mês anterior.` });
-    if (topCategory && topCategory.change !== null && topCategory.change >= 20) items.push({ tone: 'warn', text: `${topCategory.name} subiu ${topCategory.change.toFixed(0)}% em relação ao mês anterior.` });
-    if (!items.length) items.push({ tone: 'good', text: 'Nenhum alerta financeiro relevante para este mês.' });
+    if (expenseChange !== null && expenseChange >= 15) items.push({ tone: 'warn', text: `Suas despesas totais estão ${expenseChange.toFixed(0)}% maiores que no mês anterior.` });
+    if (topCategory && topCategory.change !== null && topCategory.change >= 20) items.push({ tone: 'warn', text: `${topCategory.name} subiu ${topCategory.change.toFixed(0)}% entre os lançamentos diretos em relação ao mês anterior.` });
     return items.slice(0, 4);
-  }, [canSpend, balance, firstNegative, expenseChange, topCategory]);
+  }, [monthlyResult, balance, firstNegative, expenseChange, topCategory]);
 
   if (loading || !balance) return <div className="panel skeleton-panel"><div className="skeleton" /></div>;
 
   return <>
     <section className="metrics">
       <Metric title="Receitas" value={balance.totalIncomeAmount} kind="income" detail="Entradas do mês" />
-      <Metric title="Despesas" value={balance.totalExpenseAmount} kind="expense" detail="Saídas do mês" />
-      <Metric title="Cartão" value={balance.creditCardAmount} kind="card" detail="Faturas e parcelas" />
-      <Metric title="Saldo previsto" value={balance.closingBalance} kind="balance" detail="Fechamento do mês" />
+      <Metric title="Despesas" value={balance.totalExpenseAmount} kind="expense" detail="Inclui cartão" />
+      <Metric title="Cartão" value={balance.creditCardAmount} kind="card" detail="Parte das despesas" />
+      <Metric title="Saldo previsto" value={balance.closingBalance} kind="balance" detail="Saldo acumulado no fechamento" />
     </section>
 
     <section className="dashboard-grid">
       <article className="panel">
-        <div className="panel-title"><div><span className="section-kicker">DISPONÍVEL PARA GASTAR</span><h2>Quanto ainda cabe no mês</h2></div><span className={canSpend > 0 ? 'status good' : 'status bad'}><Wallet size={15} />{canSpend > 0 ? 'Com margem' : 'Sem margem'}</span></div>
+        <div className="panel-title"><div><span className="section-kicker">RESULTADO DO MÊS</span><h2>Receitas menos despesas</h2></div><span className={monthlyResult >= 0 ? 'status good' : 'status bad'}><Wallet size={15} />{monthlyResult >= 0 ? 'Superávit' : 'Déficit'}</span></div>
         <div className="breakdown">
-          <div><span>Saldo previsto após compromissos conhecidos</span><strong>{money(balance.closingBalance)}</strong></div>
-          <div className="total-row"><span>Pode gastar</span><strong className={canSpend > 0 ? 'positive-text' : 'negative-text'}>{money(canSpend)}</strong></div>
+          <div><span>Saldo de abertura</span><strong>{money(balance.openingBalance)}</strong></div>
+          <div><span>Resultado do mês</span><strong className={monthlyResult < 0 ? 'negative-text' : 'positive-text'}>{money(monthlyResult)}</strong></div>
+          <div className="total-row"><span>Saldo previsto no fechamento</span><strong className={balance.closingBalance < 0 ? 'negative-text' : 'positive-text'}>{money(balance.closingBalance)}</strong></div>
         </div>
       </article>
 
@@ -125,12 +138,12 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
       </article>
 
       <article className="panel">
-        <div className="panel-title"><div><span className="section-kicker">DESPESAS POR CATEGORIA</span><h2>Onde você mais gastou</h2></div></div>
+        <div className="panel-title"><div><span className="section-kicker">LANÇAMENTOS DIRETOS POR CATEGORIA</span><h2>Onde você lançou despesas</h2></div></div>
         <div className="donut-layout"><div className="donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryBreakdown} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="88%" paddingAngle={2}>{categoryBreakdown.map((item, index) => <Cell key={item.name} fill={categoryColors[index % categoryColors.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value ?? 0))} /></PieChart></ResponsiveContainer></div><div className="legend-list">{categoryBreakdown.map((item, index) => <div key={item.name}><span className="legend-dot" style={{ background: categoryColors[index % categoryColors.length] }} /><span>{item.name}{item.change !== null ? ` · ${item.change >= 0 ? '+' : ''}${item.change.toFixed(0)}%` : ''}</span><strong>{money(item.value)}</strong></div>)}</div></div>
       </article>
 
       <article className="panel">
-        <div className="panel-title"><div><span className="section-kicker">TOP CATEGORIAS</span><h2>Comparação com o mês anterior</h2></div></div>
+        <div className="panel-title"><div><span className="section-kicker">TOP LANÇAMENTOS DIRETOS</span><h2>Comparação com o mês anterior</h2></div></div>
         <div className="breakdown">{categoryBreakdown.slice(0, 5).map((item) => <div key={item.name}><span>{item.name}</span><strong className={item.change !== null && item.change > 0 ? 'negative-text' : item.change !== null && item.change < 0 ? 'positive-text' : ''}>{item.change === null ? 'novo gasto' : `${item.change >= 0 ? '+' : ''}${item.change.toFixed(0)}%`} · {money(item.value)}</strong></div>)}</div>
       </article>
 
@@ -141,12 +154,12 @@ export default function DashboardPage({ year, month }: { year: number; month: nu
 
       <article className="panel">
         <div className="panel-title"><div><span className="section-kicker">FECHAMENTO</span><h2>Resultado do mês</h2></div></div>
-        <div className="breakdown"><div><span>Entradas</span><strong className="positive-text">{money(balance.totalIncomeAmount)}</strong></div><div><span>Saídas</span><strong className="negative-text">{money(balance.totalExpenseAmount)}</strong></div><div className="total-row"><span>Sobra / déficit</span><strong className={balance.netAmount < 0 ? 'negative-text' : 'positive-text'}>{money(balance.netAmount)}</strong></div></div>
+        <div className="breakdown"><div><span>Entradas</span><strong className="positive-text">{money(balance.totalIncomeAmount)}</strong></div><div><span>Saídas (cartão incluído)</span><strong className="negative-text">{money(balance.totalExpenseAmount)}</strong></div><div className="total-row"><span>Sobra / déficit do mês</span><strong className={balance.netAmount < 0 ? 'negative-text' : 'positive-text'}>{money(balance.netAmount)}</strong></div></div>
       </article>
 
       <article className="panel">
         <div className="panel-title"><div><span className="section-kicker">PREVISÃO</span><h2>Próximos fechamentos</h2></div></div>
-        <div className="table-list compact-list">{projection?.months.map((item) => <div key={`${item.year}-${item.month}`}><div><span>{monthName(item.month)}/{String(item.year).slice(2)}</span><small>{item.isNegative ? 'Saldo negativo' : 'Saldo previsto'}</small></div><strong className={item.closingBalance < 0 ? 'negative-text' : ''}>{money(item.closingBalance)}</strong><ChevronRight size={16} /></div>)}</div>
+        <div className="table-list compact-list">{projection?.months.map((item) => <div key={`${item.year}-${item.month}`}><div><span>{monthName(item.month)}/{String(item.year).slice(2)}</span><small>{item.isNegative ? 'Saldo acumulado negativo' : 'Saldo acumulado previsto'}</small></div><strong className={item.closingBalance < 0 ? 'negative-text' : ''}>{money(item.closingBalance)}</strong><ChevronRight size={16} /></div>)}</div>
       </article>
     </section>
   </>;
